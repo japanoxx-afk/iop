@@ -8,8 +8,14 @@
 exe를 게임 폴더에 두면 자동 인식, 아니면 [게임 폴더 지정]으로 선택 → config.json에 저장.
 """
 import os, sys, json, csv, shutil, subprocess, tempfile
+import urllib.request
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+
+VERSION = "0.001"
+UPDATE_BASE = "https://raw.githubusercontent.com/japanoxx-afk/iop/main"
+UPDATE_VERSION_URL = UPDATE_BASE + "/version.txt"
+UPDATE_EXE_URL = UPDATE_BASE + "/release/IOPLauncher.exe"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -205,6 +211,10 @@ class Launcher(tk.Tk):
                  font=("Arial Black", 16)).pack(side="left", pady=10)
         tk.Label(head, text="임팩트 오브 파워 런처   ", bg="#2b2b3a", fg="#9aa0b5",
                  font=("맑은 고딕", 10)).pack(side="right", pady=14)
+        tk.Button(head, text="업데이트 확인", command=self.check_update,
+                  font=("맑은 고딕", 9)).pack(side="right", pady=10, padx=(0, 6))
+        tk.Label(head, text=f"v{VERSION}   ", bg="#2b2b3a", fg="#6a7a95",
+                 font=("맑은 고딕", 9)).pack(side="right", pady=14)
 
         # 게임 폴더 줄
         gf = tk.Frame(self); gf.pack(fill="x", padx=10, pady=(8, 2))
@@ -639,6 +649,82 @@ class Launcher(tk.Tk):
         messagebox.showinfo("완료", "\n".join(msg))
         self.check_ipx()
         self.set_status("네트워크 설정 적용 완료")
+
+    # ---------------- 자동 업데이트 ----------------
+    @staticmethod
+    def _ver_tuple(v):
+        try:
+            return tuple(int(x) for x in v.strip().split("."))
+        except Exception:
+            return (0,)
+
+    def check_update(self):
+        self.set_status("업데이트 확인 중...")
+        try:
+            with urllib.request.urlopen(UPDATE_VERSION_URL, timeout=8) as r:
+                remote_ver = r.read().decode("utf-8").strip()
+        except Exception as e:
+            messagebox.showerror("오류", f"업데이트 확인 실패 (인터넷 연결을 확인하세요):\n{e}")
+            self.set_status("업데이트 확인 실패")
+            return
+
+        if self._ver_tuple(remote_ver) <= self._ver_tuple(VERSION):
+            messagebox.showinfo("업데이트 확인", f"현재 최신 버전입니다. (v{VERSION})")
+            self.set_status(f"최신 버전 (v{VERSION})")
+            return
+
+        if not messagebox.askyesno(
+            "업데이트",
+            f"새 버전이 있습니다: v{remote_ver}  (현재: v{VERSION})\n지금 업데이트할까요?"):
+            self.set_status("업데이트 보류됨")
+            return
+        self.do_update(remote_ver)
+
+    def do_update(self, remote_ver):
+        if not getattr(sys, "frozen", False):
+            messagebox.showinfo(
+                "안내",
+                "개발 모드(.py 실행)에서는 자동 업데이트를 지원하지 않습니다.\n"
+                "GitHub 저장소에서 최신 소스를 받아주세요.")
+            return
+
+        exe_path = sys.executable
+        tmp_new = os.path.join(tempfile.gettempdir(), "iop_launcher_new.exe")
+        self.set_status(f"업데이트 다운로드 중... (v{remote_ver})")
+        try:
+            urllib.request.urlretrieve(UPDATE_EXE_URL, tmp_new)
+        except Exception as e:
+            messagebox.showerror("오류", f"다운로드 실패:\n{e}")
+            self.set_status("업데이트 다운로드 실패")
+            return
+
+        if os.path.getsize(tmp_new) < 1_000_000:   # 최소 크기 검증 (오류 페이지 등 오다운로드 방지)
+            messagebox.showerror("오류", "다운로드한 파일이 올바르지 않습니다. 잠시 후 다시 시도하세요.")
+            self.set_status("업데이트 실패 (파일 손상)")
+            return
+
+        pid = os.getpid()
+        bat = os.path.join(tempfile.gettempdir(), "iop_launcher_update.bat")
+        script = (
+            "@echo off\r\n"
+            ":wait\r\n"
+            f'tasklist /FI "PID eq {pid}" | find "{pid}" >nul\r\n'
+            "if not errorlevel 1 (\r\n"
+            "  timeout /t 1 /nobreak >nul\r\n"
+            "  goto wait\r\n"
+            ")\r\n"
+            f'copy /y "{tmp_new}" "{exe_path}" >nul\r\n'
+            f'start "" "{exe_path}"\r\n'
+            'del "%~f0"\r\n'
+        )
+        with open(bat, "w", encoding="cp949", errors="replace") as f:
+            f.write(script)
+
+        flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        subprocess.Popen(["cmd", "/c", bat], creationflags=flags, close_fds=True)
+        messagebox.showinfo("업데이트", "업데이트를 적용합니다. 런처가 곧 재시작됩니다.")
+        self.destroy()
+        sys.exit(0)
 
     def set_status(self, m):
         self.status.config(text=m)
