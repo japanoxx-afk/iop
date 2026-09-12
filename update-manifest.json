@@ -1,7 +1,7 @@
 {
-  "version": "0.008",
+  "version": "0.009",
   "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "8bd3a993426fc5614f6880de42c1ba4b5cccddd639a068973f1c50268a85bf1d",
-  "size": 14354707,
-  "notes": "업데이트 교체 및 재시작 수정, 생산 단축키 영구 적용, 멀티플레이 맵 뷰어"
+  "sha256": "5ad32185312b8071d8707b77f7152882339e06ccabf72196c68843c5f7e4b126",
+  "size": 14355757,
+  "notes": "A PC Radmin IP 자동 저장 및 네트워크(IPX) 탭 제거"
 }

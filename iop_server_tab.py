@@ -27,6 +27,7 @@ class ServerTab:
         self.host_ip=tk.StringVar(value=self.cfg.get('host_ip','127.0.0.1'))
         self.connect_to=tk.StringVar(value=self.cfg.get('connect_to',SERVER_NAME))
         self.mapping_ip=tk.StringVar(value=self.cfg.get('mapping_ip',''))
+        self._network_save_after=None
         self.server_state=tk.StringVar(value='OFF')
         box=ttk.LabelFrame(p,text='A PC · 이 PC에서 서버 운영',padding=12)
         box.pack(fill='x',padx=18,pady=(14,8))
@@ -48,7 +49,11 @@ class ServerTab:
         ttk.Button(join,text='접속 검사',command=self._check_server).grid(row=0,column=2,padx=4)
         tk.Button(join,text='게임 시작',bg='#3b6ea5',fg='white',command=self.launch_game).grid(row=0,column=3,padx=8,ipadx=12)
         ttk.Label(join,text='A PC의 Radmin IP').grid(row=1,column=0,sticky='w',pady=(12,0))
-        ttk.Entry(join,textvariable=self.mapping_ip,width=25).grid(row=1,column=1,padx=8,pady=(12,0))
+        mapping_entry=ttk.Entry(join,textvariable=self.mapping_ip,width=25)
+        mapping_entry.grid(row=1,column=1,padx=8,pady=(12,0))
+        mapping_entry.bind('<FocusOut>',lambda event:self._save_network())
+        mapping_entry.bind('<Return>',lambda event:self._save_network())
+        self.mapping_ip.trace_add('write',self._queue_network_save)
         ttk.Button(join,text='hosts 등록 (관리자)',command=self._register_hosts).grid(row=1,column=2,padx=4,pady=(12,0))
         ttk.Button(join,text='접속 안내 복사',command=self._copy_connection).grid(row=1,column=3,padx=8,pady=(12,0))
         ttk.Label(join,text='B PC: 같은 Radmin 네트워크 참가 → A PC의 Radmin IP 입력 → 게임 시작.\nhosts 자동 등록(필요 시 관리자 확인)과 A·B 게임 파일 비교 후 실행됩니다.').grid(row=2,column=0,columnspan=4,sticky='w',pady=(10,0))
@@ -75,8 +80,18 @@ class ServerTab:
         return Path(sys.executable).parent if getattr(sys,'frozen',False) else Path(__file__).parent
 
     def _save_network(self):
+        if self._network_save_after is not None:
+            try:self.after_cancel(self._network_save_after)
+            except Exception:pass
+            self._network_save_after=None
         self.cfg.update(host_ip=self.host_ip.get(),connect_to=self.connect_to.get(),mapping_ip=self.mapping_ip.get())
         self.save_network_config()
+
+    def _queue_network_save(self,*_):
+        if self._network_save_after is not None:
+            try:self.after_cancel(self._network_save_after)
+            except Exception:pass
+        self._network_save_after=self.after(400,self._save_network)
 
     def _log_server(self,text):
         diagnostics.event('launcher_message',message=text)
