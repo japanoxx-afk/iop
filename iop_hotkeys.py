@@ -100,6 +100,16 @@ def patch_labels(data,mapping):
 
 def normalize_labels(data): return patch_labels(data,{})
 
+def is_applied(game_dir,mapping):
+    """Check the persisted executable and labels without writing them again."""
+    validate(mapping);root=Path(game_dir)
+    exe=(root/'iop.exe').read_bytes()
+    if patch_exe(exe,mapping)!=exe:return False
+    for name in ('Button.res','Kbutton.res'):
+        data=(root/'data'/name).read_bytes()
+        if patch_labels(data,mapping)!=data:return False
+    return True
+
 def catalog(game_dir):
     names={}
     for target,label,_ in button_records((Path(game_dir)/'data/Kbutton.res').read_bytes()):

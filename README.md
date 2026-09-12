@@ -3,7 +3,7 @@
 임팩트 오브 파워(Impact of Power) 런처 · 밸런스 편집기
 
 ## 구성
-- **v0.007 프리서버 통합:** 멀티플레이 맵 뷰어, 서버 ON/OFF, GitHub SHA-256 검증 업데이트, 유닛 생산 단축키 설정, 창모드 기본, 진단 로그/ZIP 저장, 게임 시작 통일, hosts 자동 등록, 화염병 수정 및 A·B 게임 파일 비교. [A/B PC 설정 방법](PRIVATE_SERVER.md)
+- **v0.008 프리서버 통합:** 자동 업데이트 교체·재시작 수정, 생산 단축키 영구 적용, 멀티플레이 맵 뷰어, 서버 ON/OFF, 창모드 기본, 진단 로그/ZIP 저장, hosts 자동 등록, 화염병 수정 및 A·B 게임 파일 비교. [A/B PC 설정 방법](PRIVATE_SERVER.md)
 - `iop_maps.py`, `iop_map_tab.py` — 멀티플레이 맵 크기·인원·테마 판독과 팔레트 기반 지형 미리보기
 - `iop_network.py`, `iop_server_tab.py`, `iop_admin.py`, `iop_elevation.py`, `iop_sync.py`, `iop_server/` — 내장 서버와 런처 통합 기능
 - `iop_launcher.py` — 게임 실행(창모드/전체화면), 밸런스 편집, 네트워크(IPX/Radmin) 설정을 담은 통합 런처

@@ -195,9 +195,11 @@ class ServerTab:
         self._log_server('게임 준비: 화염병 수정 / hosts 자동 등록 / A·B 파일 비교…')
         def prepare():
             from iop_sync import fix_flame,manifest,fetch_manifest,compare
-            from iop_hotkeys import apply
-            changed=apply(game_dir,hotkeys)
-            diagnostics.event("production_hotkeys_applied",profile=hotkeys,changed_files=changed)
+            from iop_hotkeys import apply,is_applied
+            changed=0
+            if not is_applied(game_dir,hotkeys):
+                changed=apply(game_dir,hotkeys)
+            diagnostics.event("production_hotkeys_checked",profile=hotkeys,restored=bool(changed),changed_files=changed)
             fix_flame(game_dir)
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
             ip=resolve_server(address)

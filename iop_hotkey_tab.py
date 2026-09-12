@@ -67,8 +67,9 @@ class HotkeyTab:
         try:
             hotkeys.validate(self._hotkey_profile)
             profile={k:v for k,v in self._hotkey_profile.items() if v!=hotkeys.DEFAULTS[k]}
+            changed=hotkeys.apply(self.game_dir,profile)
             self.cfg['production_hotkeys']=profile;self.save_network_config()
             self._hotkey_profile=profile;self._hotkeys_dirty=False
-            self.hotkey_status.set('저장 완료 · 다음 게임 시작 시 적용')
-            self._log_server(f'생산 단축키 저장: {len(profile)}개 변경 · 다음 게임 시작 시 적용')
+            self.hotkey_status.set('저장 및 게임 파일 적용 완료 · 계속 유지됨')
+            self._log_server(f'생산 단축키 영구 저장: {len(profile)}개 설정 · {changed}개 파일 변경')
         except Exception as exc:messagebox.showerror('단축키 저장 실패',str(exc))

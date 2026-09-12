@@ -104,19 +104,26 @@ try {
 } finally { Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue }
 '''
     script.write_text(body, encoding="utf-8-sig")
-    flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-    subprocess.Popen([
+    # DETACHED_PROCESS silently prevents powershell.exe from starting on some
+    # Windows installations. CREATE_NO_WINDOW survives the parent shutdown and
+    # keeps the updater invisible.
+    marker.write_text(json.dumps({"ok": None, "version": str(version), "state": "pending"}),
+                      encoding="utf-8")
+    flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    process = subprocess.Popen([
         "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
         "-File", str(script), "-OldPid", str(os.getpid()), "-Source", str(downloaded),
         "-Destination", str(destination), "-Marker", str(marker), "-Version", str(version),
     ], creationflags=flags, close_fds=True)
+    return process
 
 
 def consume_result(home):
     marker = Path(home) / "iop_update_result.json"
     if not marker.exists():
         return None
-    try:
-        return json.loads(marker.read_text(encoding="utf-8-sig"))
-    finally:
-        marker.unlink(missing_ok=True)
+    data = json.loads(marker.read_text(encoding="utf-8-sig"))
+    if data.get("state") == "pending":
+        return None
+    marker.unlink(missing_ok=True)
+    return data
