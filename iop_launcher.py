@@ -8,14 +8,11 @@
 exe를 게임 폴더에 두면 자동 인식, 아니면 [게임 폴더 지정]으로 선택 → config.json에 저장.
 """
 import os, sys, json, csv, shutil, subprocess, tempfile
-import urllib.request
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+from iop_server_tab import ServerTab
 
-VERSION = "0.001"
-UPDATE_BASE = "https://raw.githubusercontent.com/japanoxx-afk/iop/main"
-UPDATE_VERSION_URL = UPDATE_BASE + "/version.txt"
-UPDATE_EXE_URL = UPDATE_BASE + "/release/IOPLauncher.exe"
+VERSION = "0.006"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -151,7 +148,9 @@ HEADERS = {"name_kr": "유닛", "race": "종족", "kind": "분류", "HP": "체�
            "adamas": "아다마스", "platinum": "플래티넘"}
 
 
-class Launcher(tk.Tk):
+from iop_hotkey_tab import HotkeyTab
+
+class Launcher(HotkeyTab, ServerTab, tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("임팩트 오브 파워 - 런처")
@@ -169,6 +168,13 @@ class Launcher(tk.Tk):
         self.after(300, self._startup_check)
 
     def _startup_check(self):
+        from iop_update import consume_result
+        result = consume_result(EXE_DIR)
+        if result:
+            if result.get("ok"):
+                messagebox.showinfo("업데이트 완료", f"v{result.get('version')} 업데이트가 적용되었습니다.")
+            else:
+                messagebox.showerror("업데이트 실패", str(result.get("error", "알 수 없는 오류")))
         if not self.game_dir:
             messagebox.showwarning(
                 "게임 폴더 지정 필요",
@@ -181,6 +187,9 @@ class Launcher(tk.Tk):
                     "안내",
                     "게임 폴더를 지정하지 않으면 실행/밸런스 기능을 쓸 수 없습니다.\n"
                     "우측 상단 [게임 폴더 지정] 버튼으로 언제든 다시 지정할 수 있습니다.")
+
+        if self.game_dir:
+            self._check_local_sync()
 
     # ---- 게임 폴더 결정/경로 ----
     def _resolve_game_dir(self):
@@ -227,9 +236,13 @@ class Launcher(tk.Tk):
         self.tab_run = tk.Frame(nb); nb.add(self.tab_run, text="  게임 실행  ")
         self.tab_bal = tk.Frame(nb); nb.add(self.tab_bal, text="  밸런스 편집  ")
         self.tab_net = tk.Frame(nb); nb.add(self.tab_net, text="  네트워크(IPX)  ")
+        self.tab_server = tk.Frame(nb); nb.add(self.tab_server, text="  프리서버 ON/OFF  ")
         self._build_run(self.tab_run)
         self._build_balance(self.tab_bal)
         self._build_network(self.tab_net)
+        self._build_server(self.tab_server)
+        self.tab_hotkeys=tk.Frame(nb); nb.add(self.tab_hotkeys,text="  생산 단축키  ")
+        self._build_hotkeys(self.tab_hotkeys)
 
         self.status = tk.Label(self, text="준비됨", anchor="w", fg="#333",
                                bd=1, relief="sunken")
@@ -263,7 +276,7 @@ class Launcher(tk.Tk):
     def _build_run(self, p):
         box = tk.LabelFrame(p, text=" 화면 모드 ", font=("맑은 고딕", 11), padx=16, pady=12)
         box.pack(fill="x", padx=30, pady=(24, 12))
-        self.mode_var = tk.StringVar(value=self.cfg.get("mode", "window"))
+        self.mode_var = tk.StringVar(value="window")
         tk.Radiobutton(box, text="창 모드", variable=self.mode_var, value="window",
                        font=("맑은 고딕", 11)).pack(side="left", padx=20)
         tk.Radiobutton(box, text="전체 화면", variable=self.mode_var, value="full",
@@ -279,43 +292,17 @@ class Launcher(tk.Tk):
                   ).pack(fill="x", padx=30, pady=6)
 
         tk.Label(p, justify="left", fg="#555", font=("맑은 고딕", 9),
-                 text=("• 창/전체 모드는 자동 저장됩니다.\n"
+                 text=("• 런처를 열 때마다 창 모드가 기본입니다.\n"
                        "• 게임 폴더만 지정하면 어디서 실행하든 동작합니다.\n"
                        "• 다른 PC로 옮길 때는 게임 폴더를 통째로 복사하고, 그 폴더를 지정하세요.")
                  ).pack(anchor="w", padx=32, pady=18)
 
     def set_display_mode(self, mode):
-        ini = self.gp("ddraw.ini")
-        if not os.path.exists(ini):
-            return
-        enc = "cp949"
-        lines = open(ini, encoding=enc, errors="replace").read().splitlines()
-        iniop = False
-        for i, l in enumerate(lines):
-            s = l.strip()
-            if s.startswith("["):
-                iniop = (s == "[iop]")
-            if iniop:
-                if s.startswith("windowed="):
-                    lines[i] = "windowed=" + ("false" if mode == "full" else "true")
-                elif s.startswith("fullscreen="):
-                    lines[i] = "fullscreen=" + ("true" if mode == "full" else "false")
-        open(ini, "w", encoding=enc, errors="replace").write("\n".join(lines))
+        from iop_sync import display_mode
+        display_mode(self.gp("ddraw.ini"), mode)
 
     def launch_game(self):
-        if self._need_game_dir():
-            return
-        exe = self.gp("iop.exe")
-        if not os.path.exists(exe):
-            messagebox.showerror("오류", f"iop.exe 를 찾을 수 없습니다.\n{exe}"); return
-        mode = self.mode_var.get()
-        self.cfg["mode"] = mode; save_cfg(self.cfg)
-        self.set_display_mode(mode)
-        try:
-            subprocess.Popen([exe], cwd=self.game_dir)
-            self.set_status(f"게임 시작 ({'전체화면' if mode=='full' else '창모드'})")
-        except Exception as e:
-            messagebox.showerror("오류", f"실행 실패:\n{e}")
+        self.launch_private_game()
 
     def open_folder(self, path):
         if path and os.path.isdir(path):
@@ -651,36 +638,30 @@ class Launcher(tk.Tk):
         self.set_status("네트워크 설정 적용 완료")
 
     # ---------------- 자동 업데이트 ----------------
-    @staticmethod
-    def _ver_tuple(v):
-        try:
-            return tuple(int(x) for x in v.strip().split("."))
-        except Exception:
-            return (0,)
-
     def check_update(self):
+        if self.server.alive:
+            messagebox.showinfo('서버 실행 중','서버 OFF 후 업데이트를 확인하세요.'); return
         self.set_status("업데이트 확인 중...")
-        try:
-            with urllib.request.urlopen(UPDATE_VERSION_URL, timeout=8) as r:
-                remote_ver = r.read().decode("utf-8").strip()
-        except Exception as e:
-            messagebox.showerror("오류", f"업데이트 확인 실패 (인터넷 연결을 확인하세요):\n{e}")
-            self.set_status("업데이트 확인 실패")
-            return
+        from iop_update import fetch_manifest, version_tuple
+        def read():
+            return fetch_manifest()
+        def done(manifest, error):
+            if error:
+                messagebox.showerror("업데이트 오류", "GitHub 업데이트 확인 실패:\n" + error)
+                self.set_status("업데이트 확인 실패")
+                return
+            remote_ver = manifest["version"]
+            if version_tuple(remote_ver) <= version_tuple(VERSION):
+                messagebox.showinfo("업데이트 확인", f"현재 최신 버전입니다. (v{VERSION})")
+                self.set_status(f"최신 버전 (v{VERSION})")
+                return
+            if not messagebox.askyesno("업데이트", f"새 버전 v{remote_ver}을 GitHub에서 내려받을까요?\n현재 버전: v{VERSION}"):
+                self.set_status("업데이트 보류됨")
+                return
+            self.do_update(manifest)
+        self._job(read, done)
 
-        if self._ver_tuple(remote_ver) <= self._ver_tuple(VERSION):
-            messagebox.showinfo("업데이트 확인", f"현재 최신 버전입니다. (v{VERSION})")
-            self.set_status(f"최신 버전 (v{VERSION})")
-            return
-
-        if not messagebox.askyesno(
-            "업데이트",
-            f"새 버전이 있습니다: v{remote_ver}  (현재: v{VERSION})\n지금 업데이트할까요?"):
-            self.set_status("업데이트 보류됨")
-            return
-        self.do_update(remote_ver)
-
-    def do_update(self, remote_ver):
+    def do_update(self, manifest):
         if not getattr(sys, "frozen", False):
             messagebox.showinfo(
                 "안내",
@@ -688,47 +669,35 @@ class Launcher(tk.Tk):
                 "GitHub 저장소에서 최신 소스를 받아주세요.")
             return
 
-        exe_path = sys.executable
-        tmp_new = os.path.join(tempfile.gettempdir(), "iop_launcher_new.exe")
-        self.set_status(f"업데이트 다운로드 중... (v{remote_ver})")
-        try:
-            urllib.request.urlretrieve(UPDATE_EXE_URL, tmp_new)
-        except Exception as e:
-            messagebox.showerror("오류", f"다운로드 실패:\n{e}")
-            self.set_status("업데이트 다운로드 실패")
-            return
-
-        if os.path.getsize(tmp_new) < 1_000_000:   # 최소 크기 검증 (오류 페이지 등 오다운로드 방지)
-            messagebox.showerror("오류", "다운로드한 파일이 올바르지 않습니다. 잠시 후 다시 시도하세요.")
-            self.set_status("업데이트 실패 (파일 손상)")
-            return
-
-        pid = os.getpid()
-        bat = os.path.join(tempfile.gettempdir(), "iop_launcher_update.bat")
-        script = (
-            "@echo off\r\n"
-            ":wait\r\n"
-            f'tasklist /FI "PID eq {pid}" | find "{pid}" >nul\r\n'
-            "if not errorlevel 1 (\r\n"
-            "  timeout /t 1 /nobreak >nul\r\n"
-            "  goto wait\r\n"
-            ")\r\n"
-            f'copy /y "{tmp_new}" "{exe_path}" >nul\r\n'
-            f'start "" "{exe_path}"\r\n'
-            'del "%~f0"\r\n'
-        )
-        with open(bat, "w", encoding="cp949", errors="replace") as f:
-            f.write(script)
-
-        flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        subprocess.Popen(["cmd", "/c", bat], creationflags=flags, close_fds=True)
-        messagebox.showinfo("업데이트", "업데이트를 적용합니다. 런처가 곧 재시작됩니다.")
-        self.destroy()
-        sys.exit(0)
+        from iop_update import download, schedule_replace
+        self.set_status(f"업데이트 다운로드 중... (v{manifest['version']})")
+        def receive():
+            return download(manifest)
+        def done(path, error):
+            if error:
+                messagebox.showerror("업데이트 오류", "다운로드 또는 SHA-256 검증 실패:\n" + error)
+                self.set_status("업데이트 다운로드 실패")
+                return
+            try:
+                schedule_replace(path, sys.executable, manifest["version"])
+            except Exception as exc:
+                path.unlink(missing_ok=True)
+                messagebox.showerror("업데이트 오류", str(exc))
+                return
+            messagebox.showinfo("업데이트", "검증된 업데이트를 적용합니다. 런처가 자동 재시작됩니다.")
+            self.destroy()
+        self._job(receive, done)
 
     def set_status(self, m):
         self.status.config(text=m)
 
+    def save_network_config(self):
+        save_cfg(self.cfg)
+
 
 if __name__ == "__main__":
-    Launcher().mainloop()
+    if len(sys.argv)>1 and sys.argv[1] in ('--set-hosts','--set-hosts-auto','--radmin-firewall'):
+        from iop_admin import run_admin_action
+        sys.exit(run_admin_action(sys.argv[1:]))
+    else:
+        Launcher().mainloop()

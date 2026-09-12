@@ -8,3 +8,15 @@ __pycache__/
 # local/user-specific
 iop_launcher_config.json
 balance.csv
+server_data/
+iop_private.exe
+
+diagnostics/
+
+# local compatibility builds; published builds live in release/vX.YYY/
+release/IOPLauncher_Server.exe
+release/IOPLauncher_Server_Package.zip
+release/IOPLauncher_Server_Source.zip
+release/SHA256.json
+release/v0.004/
+release/v0.005/
