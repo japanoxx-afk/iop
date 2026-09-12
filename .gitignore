@@ -12,6 +12,7 @@ server_data/
 iop_private.exe
 
 diagnostics/
+analysis/
 
 # local compatibility builds; published builds live in release/vX.YYY/
 release/IOPLauncher_Server.exe

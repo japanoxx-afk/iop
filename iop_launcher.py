@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.006"
+VERSION = "0.007"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -149,8 +149,9 @@ HEADERS = {"name_kr": "유닛", "race": "종족", "kind": "분류", "HP": "체�
 
 
 from iop_hotkey_tab import HotkeyTab
+from iop_map_tab import MapViewerTab
 
-class Launcher(HotkeyTab, ServerTab, tk.Tk):
+class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("임팩트 오브 파워 - 런처")
@@ -237,10 +238,12 @@ class Launcher(HotkeyTab, ServerTab, tk.Tk):
         self.tab_bal = tk.Frame(nb); nb.add(self.tab_bal, text="  밸런스 편집  ")
         self.tab_net = tk.Frame(nb); nb.add(self.tab_net, text="  네트워크(IPX)  ")
         self.tab_server = tk.Frame(nb); nb.add(self.tab_server, text="  프리서버 ON/OFF  ")
+        self.tab_maps = tk.Frame(nb); nb.add(self.tab_maps, text="  멀티 맵 뷰어  ")
         self._build_run(self.tab_run)
         self._build_balance(self.tab_bal)
         self._build_network(self.tab_net)
         self._build_server(self.tab_server)
+        self._build_map_viewer(self.tab_maps)
         self.tab_hotkeys=tk.Frame(nb); nb.add(self.tab_hotkeys,text="  생산 단축키  ")
         self._build_hotkeys(self.tab_hotkeys)
 
@@ -271,6 +274,8 @@ class Launcher(HotkeyTab, ServerTab, tk.Tk):
         # 밸런스가 열려있으면 새로 로드
         if self.all_rows:
             self.load_balance()
+        if hasattr(self, "map_tree"):
+            self._refresh_maps()
 
     # ---------------- 실행 탭 ----------------
     def _build_run(self, p):

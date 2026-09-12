@@ -1,7 +1,7 @@
 {
-  "version": "0.006",
+  "version": "0.007",
   "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "fe63908f1300413e20d18ce8fbb374497d89e8c0acdd18f331b92ac173b5bcba",
-  "size": 14351779,
-  "notes": "GitHub 검증 업데이트, 생산 단축키, 창모드 기본, 진단 로그, 서버 ON/OFF"
+  "sha256": "537d80156db8a877cbe4f923f659bee8456798c65372524464509a0f584aa2d2",
+  "size": 14354845,
+  "notes": "멀티플레이 맵 뷰어, 생산 단축키, 창모드 기본, 진단 로그, 서버 ON/OFF"
 }
