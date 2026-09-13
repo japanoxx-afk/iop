@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 import iop_maps
+from iop_map_format import MapDocument
 
 
 class MapViewerTab:
@@ -63,12 +64,30 @@ class MapViewerTab:
         if not info: return
         try:
             palette = iop_maps.read_palette(self.game_dir, info.theme_id)
-            ppm = iop_maps.ppm_preview(info, palette, self.map_zoom.get())
+            doc = MapDocument.load(info.path)
+            ppm = doc.preview(palette, self.map_zoom.get())
             self._map_photo = tk.PhotoImage(data=ppm, format="PPM")
             self.map_canvas.delete("all")
             self.map_canvas.create_image(0, 0, image=self._map_photo, anchor="nw")
+            draw_resources(self.map_canvas, doc.resources, self.map_zoom.get())
+            draw_starts(self.map_canvas, info.starts, self.map_zoom.get())
             self.map_canvas.configure(scrollregion=(0, 0, self._map_photo.width(), self._map_photo.height()))
             kb = info.file_size / 1024
-            self.map_info_var.set(f"{info.path.name}  |  {info.width}×{info.height}  |  최대 {info.players}명  |  {info.theme}  |  {kb:,.1f} KB")
+            self.map_info_var.set(f"{info.path.name} | {doc.width}×{doc.height} | {info.players}명 | 자원 {len(doc.resources)}개 (청록 ◆)")
         except Exception as exc:
             self.map_info_var.set(f"미리보기 오류: {exc}")
+
+
+def draw_starts(canvas, positions, scale):
+    canvas.delete('starts')
+    for number, (x, y) in enumerate(positions, 1):
+        x, y = (x + 0.5) * scale, (y + 0.5) * scale
+        canvas.create_oval(x-10, y-10, x+10, y+10, fill='#ffdf45', outline='black', width=2, tags='starts')
+        canvas.create_text(x, y, text=str(number), fill='black', font=('Arial', 10, 'bold'), tags='starts')
+
+
+def draw_resources(canvas, positions, scale):
+    canvas.delete('resources')
+    for x,y in positions:
+        x,y=(x+.5)*scale,(y+.5)*scale
+        canvas.create_polygon(x,y-4,x+4,y,x,y+4,x-4,y,fill='#21fff0',outline='#002b28',tags='resources')

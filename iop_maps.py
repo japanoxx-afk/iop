@@ -1,6 +1,7 @@
 """Read-only parser and renderer for Impact of Power multiplayer maps."""
 from dataclasses import dataclass
 from pathlib import Path
+import struct
 
 
 THEMES = {0: ("아트로스", "a.pal"), 1: ("다크존", "b.pal"), 2: ("노블어스", "c.pal")}
@@ -18,24 +19,41 @@ class MapInfo:
     file_size: int
     terrain: bytes
 
+    @property
+    def starts(self):
+        data = self.path.read_bytes()
+        if len(data) < 38 or not 2 <= self.players <= 8:
+            raise ValueError('지원하지 않는 멀티플레이 시작 위치 헤더입니다.')
+        return [struct.unpack_from('<hh', data, 6 + i * 4) for i in range(self.players)]
+
+
+def save_starts(info, positions, destination):
+    if len(positions) != info.players:
+        raise ValueError('시작 위치 개수가 참가 인원과 다릅니다.')
+    if len(set(positions)) != len(positions):
+        raise ValueError('시작 위치가 중복됩니다.')
+    data = bytearray(info.path.read_bytes())
+    for i, (x, y) in enumerate(positions):
+        if not (0 <= x < info.width and 0 <= y < info.height):
+            raise ValueError('시작 위치가 맵 범위를 벗어났습니다.')
+        struct.pack_into('<hh', data, 6 + i * 4, x, y)
+    destination = Path(destination)
+    if destination.suffix.lower() != '.map':
+        raise ValueError('.map 확장자로 저장하세요.')
+    # Exclusive creation protects original maps and previously saved work.
+    with destination.open('xb') as stream:
+        stream.write(data)
+
 
 def read_map(path):
+    from iop_map_format import MapDocument
     path = Path(path)
-    data = path.read_bytes()
-    if len(data) < 24:
-        raise ValueError("맵 파일이 너무 작습니다.")
-    width = int.from_bytes(data[-8:-4], "little") + 1
-    height = int.from_bytes(data[-4:], "little") + 1
-    if not (1 <= width <= 512 and 1 <= height <= 512):
-        raise ValueError(f"지원하지 않는 맵 크기입니다: {width}×{height}")
-    cells = width * height
-    if cells + 8 > len(data):
-        raise ValueError("지형 레이어가 잘렸습니다.")
-    theme_id = data[4]
+    doc = MapDocument.load(path)
+    theme_id = doc.theme
     theme = THEMES.get(theme_id, (f"알 수 없음 ({theme_id})", ""))[0]
-    header_size = max(0, int.from_bytes(data[:2], "little") - 3)
-    return MapInfo(path, width, height, data[5], theme_id, theme,
-                   header_size, len(data), data[-8-cells:-8])
+    header_size = int.from_bytes(doc.fixed[:2], 'little')
+    return MapInfo(path, doc.width, doc.height, doc.players, theme_id, theme,
+                   header_size, path.stat().st_size, bytes(doc.minimap))
 
 
 def list_multiplayer(game_dir):

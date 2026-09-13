@@ -1,7 +1,7 @@
 {
-  "version": "0.009",
+  "version": "0.010",
   "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "5ad32185312b8071d8707b77f7152882339e06ccabf72196c68843c5f7e4b126",
-  "size": 14355757,
-  "notes": "A PC Radmin IP 자동 저장 및 네트워크(IPX) 탭 제거"
+  "sha256": "589aa89296185c76c5a1b1395f8a98905bc01ea7660c64b64c0a54de12eb2c8c",
+  "size": 14375351,
+  "notes": "멀티 맵 타일·자원 편집, 언덕 영역 복사, 실제 타일 뷰어 및 시작·자원 위치 표시"
 }

@@ -1,0 +1,14 @@
+{
+  "IOPLauncher_Server.exe": {
+    "bytes": 14375351,
+    "sha256": "589aa89296185c76c5a1b1395f8a98905bc01ea7660c64b64c0a54de12eb2c8c"
+  },
+  "IOPLauncher_Server_Source.zip": {
+    "bytes": 87669,
+    "sha256": "8d6a060e7a2d5c0f99e497fed7b1a82a4a5ed8522b9470fc5b7817d7d53bfb49"
+  },
+  "IOPLauncher_Server_Package.zip": {
+    "bytes": 14109054,
+    "sha256": "ae4781e6ecd40cf497bbdc2e0eaea7e084607f4bf0c6c48247046585fc9968ff"
+  }
+}
