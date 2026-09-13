@@ -23,9 +23,9 @@ class MapEditor(ttk.Frame):
         tool.pack(side='left',padx=5)
         self.slot=ttk.Combobox(bar,state='readonly',width=4);self.slot.pack(side='left')
         self.zoom=tk.IntVar(value=4)
-        zoom=ttk.Combobox(bar,textvariable=self.zoom,values=(2,4,8),state='readonly',width=3)
+        zoom=ttk.Combobox(bar,textvariable=self.zoom,values=(2,4,8,16),state='readonly',width=3)
         zoom.pack(side='left',padx=5);zoom.bind('<<ComboboxSelected>>',lambda e:self.redraw())
-        ttk.Label(self,text='우클릭: 타일 채집 / 영역 첫 모서리 · Shift+우클릭: 영역 반대 모서리 · 좌클릭: 적용\n언덕은 절벽·경사로까지 포함해 영역 복사하세요. 청록 ◆ 자원 / 노랑 숫자 시작 위치',justify='left').pack(anchor='w',pady=4)
+        ttk.Label(self,text='우클릭: 평지로 지우기 · Ctrl+우클릭: 타일 채집 / 영역 첫 모서리 · Shift+우클릭: 영역 반대 모서리 · 좌클릭: 적용\n언덕은 절벽·경사로까지 포함해 영역 복사하세요. 청록 ◆ 자원 / 노랑 숫자 시작 위치',justify='left').pack(anchor='w',pady=4)
         self.status=tk.StringVar(value='맵을 열어 타일을 선택하세요.')
         ttk.Label(self,textvariable=self.status).pack(anchor='w')
         body=ttk.Panedwindow(self,orient='horizontal');body.pack(fill='both',expand=True)
@@ -59,7 +59,8 @@ class MapEditor(ttk.Frame):
         self.canvas.bind('<Button-1>',self.stroke_start)
         self.canvas.bind('<B1-Motion>',self.stroke_move)
         self.canvas.bind('<ButtonRelease-1>',self.stroke_end)
-        self.canvas.bind('<Button-3>',self.pick)
+        self.canvas.bind('<Button-3>',self.erase)
+        self.canvas.bind('<Control-Button-3>',self.pick)
         self.canvas.bind('<Shift-Button-3>',self.copy_end)
 
     def open_map(self):
@@ -165,6 +166,15 @@ class MapEditor(ttk.Frame):
         self.tiles.selection_clear(0,'end');self.tiles.selection_set(self.doc.tile_id(x,y))
         self.tiles.see(self.doc.tile_id(x,y));self.select_tile()
 
+    def erase(self,event):
+        if self.doc is None:return 'break'
+        x,y=self.coords(event)
+        if 0<=x<self.doc.width and 0<=y<self.doc.height:
+            tile=self.doc.ground_tile()
+            if self.doc.tile_id(x,y)!=tile:
+                self.checkpoint();self.doc.paint(x,y,tile);self.dirty=True;self.redraw()
+        return 'break'
+
     def copy_end(self,event):
         if self.doc is None or self.anchor is None:return 'break'
         try:
@@ -183,7 +193,7 @@ class MapEditor(ttk.Frame):
         if not (0<=x<self.doc.width and 0<=y<self.doc.height):return
         mode=self.mode.get()
         if mode=='언덕/영역 복사' and self.patch is None:
-            self.status.set('우클릭과 Shift+우클릭으로 복사 영역을 먼저 지정하세요.');return
+            self.status.set('Ctrl+우클릭과 Shift+우클릭으로 복사 영역을 먼저 지정하세요.');return
         self.checkpoint()
         try:
             if mode=='시작 위치':self.doc.starts[self.slot.current()]=(x,y)

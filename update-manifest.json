@@ -1,7 +1,7 @@
 {
-  "version": "0.012",
+  "version": "0.013",
   "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "fc2ab2c5337941c03da8aaf146c8b2a4d4f0d1b6f78d81d6bf124896db760ec7",
-  "size": 14381149,
-  "notes": "현재 맵 저장·직전 백업, 다른 이름으로 저장, 타일 일반·언덕·입구 분류 지정과 영구 보관"
+  "sha256": "77f743218b264e47bd08682ca6b6923d1a68f2900e949be85cc98c0505a0137a",
+  "size": 14382218,
+  "notes": "우클릭 지형 지우기, 에디터 최대 확대 16, 서버 연결 불가 시 로컬 실행, 창 확대 및 맵뷰어 기본 배율 3"
 }

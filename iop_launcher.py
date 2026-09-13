@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.012"
+VERSION = "0.013"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -155,7 +155,7 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("임팩트 오브 파워 - 런처")
-        self.geometry("1080x680")
+        self.geometry(f"{min(1440,self.winfo_screenwidth()-80)}x{min(900,self.winfo_screenheight()-100)}")
         self.cfg = load_cfg()
         self.all_rows = []
         self.rows_meta = {}

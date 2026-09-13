@@ -28,7 +28,7 @@ class MapViewerTab:
         self.map_info_var = tk.StringVar(value="맵을 선택하세요.")
         ttk.Label(controls, textvariable=self.map_info_var).pack(side="left")
         ttk.Label(controls, text="확대:").pack(side="right", padx=(6, 2))
-        self.map_zoom = tk.IntVar(value=4)
+        self.map_zoom = tk.IntVar(value=3)
         zoom = ttk.Combobox(controls, textvariable=self.map_zoom, values=(2, 3, 4, 5, 6), width=3, state="readonly")
         zoom.pack(side="right"); zoom.bind("<<ComboboxSelected>>", self._show_selected_map)
         frame = ttk.Frame(right); frame.pack(fill="both", expand=True)

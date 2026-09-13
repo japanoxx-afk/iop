@@ -34,6 +34,11 @@ class EditorUI(unittest.TestCase):
                 self.assertIn('입구',editor.tile_label(1))
                 editor.doc.tiles.reverse()
                 editor.doc.paint(0,0,1);editor.dirty=True
+                editor.zoom.set(16)
+                editor.erase(SimpleNamespace(x=0,y=0))
+                self.assertEqual(editor.doc.tile_id(0,0),0)
+                editor.undo()
+                self.assertEqual(editor.doc.tile_id(0,0),1)
                 with patch.object(editor.doc,'spawn_issues',return_value=[]), patch('iop_map_editor.filedialog.asksaveasfilename') as dialog, patch('iop_map_editor.messagebox.showerror') as error:
                     editor.save()
                     dialog.assert_not_called();error.assert_not_called()

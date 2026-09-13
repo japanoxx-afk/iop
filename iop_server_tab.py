@@ -217,13 +217,18 @@ class ServerTab:
             diagnostics.event("production_hotkeys_checked",profile=hotkeys,restored=bool(changed),changed_files=changed)
             fix_flame(game_dir)
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
-            ip=resolve_server(address)
+            try:
+                ip=resolve_server(address)
+                with socket.create_connection((ip,6305),timeout=3): pass
+                remote=fetch_manifest(ip)
+            except OSError as exc:
+                diagnostics.event('offline_launch',reason=str(exc))
+                return str(Path(game_dir)/'iop.exe'),None,0
             if hosts_mapping()!=ip:
                 self._admin_action('--set-hosts-auto',ip,wait=True)
             if hosts_mapping()!=ip or resolve_server(SERVER_NAME)!=ip:
                 raise ValueError('hosts 등록 결과를 확인하지 못했습니다. 게임을 실행하지 않았습니다.')
-            with socket.create_connection((ip,6305),timeout=3): pass
-            count=compare(manifest(game_dir),fetch_manifest(ip))
+            count=compare(manifest(game_dir),remote)
             return str(prepare_private_exe(game_dir,ip)),ip,count
         def done(result,error):
             self._launch_pending=False
