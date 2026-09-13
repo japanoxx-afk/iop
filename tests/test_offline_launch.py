@@ -16,7 +16,7 @@ class OfflineLaunch(unittest.TestCase):
         launcher.mapping_ip.get.return_value='26.1.2.3'
         result=[]
         launcher._job=lambda work,done:result.append(work())
-        with patch('iop_hotkeys.is_applied',return_value=True), patch('iop_sync.fix_flame'), patch('iop_server_tab.resolve_server',return_value='26.1.2.3'), patch('iop_server_tab.socket.create_connection',side_effect=ConnectionRefusedError()), patch('iop_server_tab.diagnostics.event'):
+        with patch('iop_stability.apply'), patch('iop_hotkeys.is_applied',return_value=True), patch('iop_sync.fix_flame'), patch('iop_server_tab.resolve_server',return_value='26.1.2.3'), patch('iop_server_tab.socket.create_connection',side_effect=ConnectionRefusedError()), patch('iop_server_tab.diagnostics.event'):
             ServerTab.launch_private_game(launcher)
         self.assertEqual(result,[(str(Path('game')/'iop.exe'),None,0)])
         launcher._admin_action.assert_not_called()

@@ -1,7 +1,7 @@
 {
-  "version": "0.017",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.017/IOPLauncher_Server.exe",
-  "sha256": "f7d105ef93ddd8bdb512470b52c9d2c26110499fdf3c82189fde5ed535bde598",
-  "size": 14388657,
-  "notes": "단축키·IP 설정 공용 저장 및 기존 설정 이전, 업데이트 교체·재시작 수정"
+  "version": "0.018",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.018/IOPLauncher_Server.exe",
+  "sha256": "06185fd0da96044fc824d369bdf731fead33c0ada18337c77f4c4354f277ab5c",
+  "size": 14389818,
+  "notes": "화면 효과 메모리 접근 오류 우회, 비정상 종료 분석 ZIP·덤프 자동 수집"
 }

@@ -218,6 +218,8 @@ class ServerTab:
                 changed=apply(game_dir,hotkeys)
             diagnostics.event("production_hotkeys_checked",profile=hotkeys,restored=bool(changed),changed_files=changed)
             fix_flame(game_dir)
+            from iop_stability import apply as apply_render_fix
+            diagnostics.event('render_safety_patch',changed=apply_render_fix(game_dir))
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
             try:
                 ip=resolve_server(address)
@@ -242,7 +244,7 @@ class ServerTab:
             try:
                 self.set_display_mode(mode)
                 diagnostics.event("launch_ready",mode=mode,server=ip,matched_files=count)
-                self._game_process=diagnostics.launch(exe,game_dir)
+                self._game_process=diagnostics.launch(exe,game_dir,on_report=lambda path:self.server.events.put(('log','게임 종료 분석 ZIP 자동 저장: '+str(path))))
                 if ip:
                     self.mapping_ip.set(ip); self.connect_to.set(SERVER_NAME); self._save_network()
                 self._log_server(f'게임 시작: iop.exe · {mode} · '+(f'A·B {count}개 파일 일치 / {ip}' if ip else '로컬 실행'))

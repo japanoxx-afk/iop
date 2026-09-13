@@ -10,6 +10,7 @@ import threading
 import time
 import traceback
 import zipfile
+import shutil
 
 _directory=None
 _lock=threading.Lock()
@@ -23,7 +24,7 @@ def configure(home):
         base=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'IOPLauncher/diagnostics'
         (base/name).mkdir(parents=True,exist_ok=True)
     _directory=base/name
-    event('launcher_start',version='0.017',windows=platform.platform(),python=platform.python_version(),architecture=platform.machine())
+    event('launcher_start',version='0.018',windows=platform.platform(),python=platform.python_version(),architecture=platform.machine())
     return _directory
 
 def event(kind,**fields):
@@ -45,7 +46,7 @@ def powershell(script):
 def snapshot(game_dir,pid=None):
     root=Path(game_dir)
     files={}
-    for name in ('iop.exe','ddraw.dll','d3d8.dll','d3d9.dll','dxgi.dll','winmm.dll','dinput.dll','dinput8.dll'):
+    for name in ('iop.exe','ddraw.dll','d3d8.dll','d3d9.dll','dxgi.dll','winmm.dll','dinput.dll','dinput8.dll','data/Gweapon.res','data/Button.res','data/Kbutton.res'):
         p=root/name
         if p.is_file():
             files[name]={'size':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
@@ -54,10 +55,14 @@ def snapshot(game_dir,pid=None):
         p=root/name
         if p.is_file(): configs[name]=p.read_bytes()[:65536].decode('latin-1')
     event('game_environment',game_dir=str(root),pid=pid,files=files,configs=configs)
+    maps={}
+    for p in (root/'map'/'multi').glob('*.map'):
+        if p.stat().st_size<=32*1024*1024:maps[p.name]=hashlib.sha256(p.read_bytes()).hexdigest()
+    event('map_inventory',files=maps)
     if os.name!='nt': return
     scripts={
         'graphics': 'Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,DriverDate,VideoModeDescription | ConvertTo-Json -Depth 3',
-        'game_windows_events': "$since=(Get-Date).AddMinutes(-15); Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$since; Id=1000,1001,1002} -MaxEvents 100 -ErrorAction SilentlyContinue | Where-Object { $_.Message -match '(?i)iop\\.exe|IOPLauncher_Server' } | Select-Object -First 10 TimeCreated,Id,ProviderName,Message | ConvertTo-Json -Depth 3"
+        'game_windows_events': "$since=(Get-Date).AddMinutes(-15); Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$since; Id=1000,1001,1002} -MaxEvents 100 -ErrorAction SilentlyContinue | Where-Object { $_.Message -match '(?i)iop[.]exe|iop_private[.]exe|IOPLauncher_Server' } | Select-Object -First 10 TimeCreated,Id,ProviderName,Message | ConvertTo-Json -Depth 3"
     }
     if pid:
         scripts['game_process']=f"$p=Get-Process -Id {int(pid)} -ErrorAction Stop; $p | Select-Object Id,ProcessName,Responding,CPU,WorkingSet64,MainWindowHandle,MainWindowTitle,StartTime | ConvertTo-Json; $p.Modules | Select-Object ModuleName,FileName,FileVersionInfo | ConvertTo-Json -Depth 2"
@@ -80,7 +85,7 @@ def background_snapshot(game_dir,pid=None):
         except Exception: event('diagnostic_error',traceback=traceback.format_exc())
     threading.Thread(target=work,daemon=True).start()
 
-def launch(exe,game_dir):
+def launch(exe,game_dir,on_report=None):
     output=(_directory/'game-output.log').open('ab') if _directory else subprocess.DEVNULL
     try:
         process=subprocess.Popen([str(exe)],cwd=game_dir,stdout=output,stderr=subprocess.STDOUT)
@@ -100,10 +105,30 @@ def launch(exe,game_dir):
             time.sleep(1)
         code=process.returncode
         event('game_exited',pid=process.pid,exit_code=code,exit_hex=f'0x{code&0xffffffff:08X}',elapsed_seconds=round(time.monotonic()-started))
-        snapshot(game_dir)
+        try:
+            if code!=0:
+                time.sleep(3) # Allow Windows Error Reporting to finalize its report.
+                snapshot(game_dir)
+                target=archive_exit(game_dir,process.pid,code)
+                event('automatic_crash_report',path=str(target))
+                if on_report:on_report(target)
+            else:snapshot(game_dir)
+        except Exception:event('diagnostic_error',stage='exit_report',traceback=traceback.format_exc())
     threading.Thread(target=monitor,daemon=True).start()
     background_snapshot(game_dir,process.pid)
     return process
+
+def archive_exit(game_dir,pid,code):
+    if _directory is None:raise RuntimeError('진단 폴더가 없습니다.')
+    dump=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'CrashDumps'/f'iop.exe.{int(pid)}.dmp'
+    if dump.is_file() and dump.stat().st_size<=128*1024*1024:
+        shutil.copy2(dump,_directory/dump.name)
+    (_directory/f'exit-{pid}.json').write_text(json.dumps({'pid':pid,'exit_code':code,'exit_hex':f'0x{code&0xffffffff:08X}','dump_found':(_directory/dump.name).exists(),'game_dir':str(game_dir)},indent=2),encoding='utf-8')
+    target=_directory.parent/f'{_directory.name}-exit-{pid}.zip'
+    with _lock,zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED) as archive:
+        for p in _directory.iterdir():
+            if p.is_file() and p.stat().st_size<=128*1024*1024:archive.write(p,p.name)
+    return target
 
 def report(game_dir,pid=None):
     if _directory is None: raise RuntimeError('진단 로그 폴더가 초기화되지 않았습니다.')

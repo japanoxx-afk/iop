@@ -65,7 +65,8 @@ def normalize_exe(data):
 def patch_exe(data,mapping):
     from iop_network import ADDRESS_OFFSET,ORIGINAL_ADDRESS,ORIGINAL_HASH
     base=normalize_exe(data)
-    normalized=base[:ADDRESS_OFFSET]+ORIGINAL_ADDRESS+base[ADDRESS_OFFSET+16:]
+    from iop_stability import normalize
+    normalized=normalize(base[:ADDRESS_OFFSET]+ORIGINAL_ADDRESS+base[ADDRESS_OFFSET+16:])
     if hashlib.sha256(normalized).hexdigest()!=ORIGINAL_HASH: raise ValueError('지원되지 않는 iop.exe 버전')
     region,pointers=render(mapping)
     result=bytearray(base);result[START:END]=region
