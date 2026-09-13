@@ -1,7 +1,7 @@
 {
   "version": "0.015",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "ad06d4a3f79eff25b24b9d501f55d809a4287f28cda42c07b159a6cfa5c1b218",
-  "size": 14384002,
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.015/IOPLauncher_Server.exe",
+  "sha256": "aee0bb57a05c3a2b0dfe7d3b51e6dd560e566af51c0c555e8ea14711ff964faf",
+  "size": 14396005,
   "notes": "영상 녹화 탭: 게임 창 무음 자동 녹화, 게임 종료 시 MP4 저장, 영상 목록·재생"
 }
