@@ -20,6 +20,7 @@ with zipfile.ZipFile(release/'IOPLauncher_Server_Package.zip','w',zipfile.ZIP_DE
     archive.write(root/'PRIVATE_SERVER.md','사용방법.md')
     archive.write(root/'HOTKEY_ANALYSIS.md','HOTKEY_ANALYSIS.md')
     archive.write(root/'MAP_EDITOR.md','MAP_EDITOR.md')
+    archive.write(root/'VIDEO_RECORDING.md','VIDEO_RECORDING.md')
     archive.write(root/'update-manifest.json','update-manifest.json')
 for name in ('IOPLauncher_Server_Source.zip','IOPLauncher_Server_Package.zip'):
     with zipfile.ZipFile(release/name) as archive:
