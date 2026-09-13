@@ -195,8 +195,6 @@ class ServerTab:
 
     def launch_private_game(self):
         if self._need_game_dir() or self._launch_pending: return
-        if getattr(self,'recording_tab',None) and self.recording_tab.recorder.active:
-            messagebox.showinfo('영상 저장 중','이전 녹화가 마무리된 뒤 게임을 시작하세요.');return
         if self._game_process and self._game_process.poll() is None:
             messagebox.showinfo('게임 실행 중','실행 중인 게임을 종료한 뒤 다시 시작하세요.'); return
         game_dir=self.game_dir; mode=self.mode_var.get()
@@ -210,15 +208,7 @@ class ServerTab:
         diagnostics.event("launch_requested",game_dir=game_dir,mode=mode,server=address,network=network)
         self._launch_pending=True
         self._log_server('게임 준비: 화염병 수정 / hosts 자동 등록 / A·B 파일 비교…')
-        encoder=None
         def prepare():
-            nonlocal encoder
-            if self.cfg.get('auto_record_video',True):
-                try:
-                    from iop_recording import ensure_encoder
-                    encoder=ensure_encoder()
-                except Exception as exc:
-                    diagnostics.event('recording_setup_error',error=str(exc))
             from iop_sync import fix_flame,manifest,fetch_manifest,compare
             from iop_hotkeys import apply,is_applied
             changed=0
@@ -251,11 +241,6 @@ class ServerTab:
                 self.set_display_mode(mode)
                 diagnostics.event("launch_ready",mode=mode,server=ip,matched_files=count)
                 self._game_process=diagnostics.launch(exe,game_dir)
-                if self.cfg.get('auto_record_video',True):
-                    if encoder:self.recording_tab.recorder.start(self._game_process,encoder,self.recording_tab.folder)
-                    else:
-                        self.recording_tab.status.set('녹화 도구 준비 실패 · 게임만 실행했습니다. 인터넷 연결과 진단 로그를 확인하세요.')
-                        messagebox.showwarning('자동 녹화 시작 실패','녹화 도구를 준비하지 못해 게임만 실행했습니다. 인터넷 연결과 진단 로그를 확인하세요.')
                 if ip:
                     self.mapping_ip.set(ip); self.connect_to.set(SERVER_NAME); self._save_network()
                 self._log_server(f'게임 시작: iop.exe · {mode} · '+(f'A·B {count}개 파일 일치 / {ip}' if ip else '로컬 실행'))
@@ -314,10 +299,6 @@ class ServerTab:
         if self._launch_pending:
             messagebox.showinfo('게임 준비 중','관리자 확인 또는 게임 준비 작업이 끝난 뒤 런처를 닫으세요.')
             return
-        if self.recording_tab.recorder.active:
-            self.recording_tab.recorder.stop()
-            self.recording_tab.status.set('영상 저장 후 런처를 종료합니다…')
-            self.after(300,self._close_launcher);return
         self._save_network()
         self._closing=True
         self.server.stop()

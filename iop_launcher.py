@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.015"
+VERSION = "0.016"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -248,9 +248,6 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         self.map_editor = MapEditor(self.tab_map_editor, self)
         self.tab_hotkeys=tk.Frame(nb); nb.add(self.tab_hotkeys,text="  생산 단축키  ")
         self._build_hotkeys(self.tab_hotkeys)
-        from iop_recording_tab import RecordingTab
-        tab_recording=tk.Frame(nb);nb.add(tab_recording,text='  영상 녹화  ')
-        self.recording_tab=RecordingTab(tab_recording,self)
 
         self.status = tk.Label(self, text="준비됨", anchor="w", fg="#333",
                                bd=1, relief="sunken")

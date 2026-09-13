@@ -23,7 +23,7 @@ def configure(home):
         base=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'IOPLauncher/diagnostics'
         (base/name).mkdir(parents=True,exist_ok=True)
     _directory=base/name
-    event('launcher_start',version='0.015',windows=platform.platform(),python=platform.python_version(),architecture=platform.machine())
+    event('launcher_start',version='0.016',windows=platform.platform(),python=platform.python_version(),architecture=platform.machine())
     return _directory
 
 def event(kind,**fields):

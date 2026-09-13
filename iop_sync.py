@@ -10,6 +10,9 @@ import time
 SYNC_PORT = 6306
 LIMIT = 1024 * 1024
 
+def is_multiplayer_map(name):
+    return str(name).replace('\\','/').lower().startswith('map/multi/')
+
 def fix_flame(game_dir):
     path=Path(game_dir)/'data/Gweapon.res'
     raw=bytearray(path.read_bytes())
@@ -38,7 +41,8 @@ def manifest(game_dir):
     from iop_network import patched_bytes
     root=Path(game_dir)
     files={p.relative_to(root).as_posix().lower():p for folder in ('data','map','script','scripts')
-           for p in (root/folder).rglob('*') if p.is_file() and p.suffix.lower() in ('.res','.map','.scr','.dll')}
+           for p in (root/folder).rglob('*') if p.is_file() and p.suffix.lower() in ('.res','.map','.scr','.dll')
+           and not is_multiplayer_map(p.relative_to(root).as_posix())}
     if 'data/gweapon.res' not in files: raise ValueError('게임 데이터 폴더가 올바르지 않습니다.')
     from iop_hotkeys import normalize_exe,normalize_labels
     result={}
@@ -52,10 +56,12 @@ def manifest(game_dir):
 def compare(local, remote):
     if not isinstance(remote,dict) or remote.get('protocol')!=1 or not isinstance(remote.get('files'),dict):
         raise ValueError('서버 런처를 v0.003 이상으로 업데이트하세요.')
-    mismatches=[name for name in sorted(set(local['files'])|set(remote['files'])) if local['files'].get(name)!=remote['files'].get(name)]
+    local_files={k:v for k,v in local['files'].items() if not is_multiplayer_map(k)}
+    remote_files={k:v for k,v in remote['files'].items() if not is_multiplayer_map(k)}
+    mismatches=[name for name in sorted(set(local_files)|set(remote_files)) if local_files.get(name)!=remote_files.get(name)]
     if mismatches:
         raise ValueError('A·B 게임 파일 불일치. 양쪽 게임을 종료하고 A의 동일한 데이터/패치를 적용하세요.\n'+'\n'.join(mismatches[:20]))
-    return len(local['files'])
+    return len(local_files)
 
 async def serve_manifest(writer, game_dir):
     try:
