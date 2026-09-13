@@ -2,6 +2,10 @@
 from pathlib import Path
 import struct
 import copy
+import os
+import tempfile
+import hashlib
+import shutil
 
 MAX_BYTES = 32 * 1024 * 1024
 
@@ -14,6 +18,7 @@ class MapDocument:
             data = f.read(MAX_BYTES + 1)
         obj = cls.decode(data)
         obj.path = path
+        obj.disk_hash = hashlib.sha256(data).hexdigest()
         return obj
 
     @classmethod
@@ -82,13 +87,28 @@ class MapDocument:
                 + struct.pack(f'<{len(self.grid)}I', *self.grid) + b''.join(self.tiles)
                 + bytes(self.minimap) + self.bounds)
 
-    def save(self, path):
+    def save(self, path, overwrite=False):
         path = Path(path)
         if path.suffix.lower() != '.map': raise ValueError('.map 파일로 저장하세요.')
         data = self.encode()
         type(self).decode(data)
-        with path.open('xb') as f: f.write(data)
+        if overwrite and path.exists():
+            previous=path.read_bytes()
+            if self.path and path.resolve()==self.path.resolve() and getattr(self,'disk_hash',None)!=hashlib.sha256(previous).hexdigest():
+                raise ValueError('다른 프로그램에서 맵을 변경했습니다. 다시 열어 변경 내용을 확인하세요.')
+            backup=path.with_name(path.name+'.bak')
+            shutil.copy2(path,backup)
+            fd,temp=tempfile.mkstemp(prefix=path.name+'.',suffix='.tmp',dir=path.parent)
+            try:
+                with os.fdopen(fd,'wb') as f:
+                    f.write(data);f.flush();os.fsync(f.fileno())
+                os.replace(temp,path)
+            finally:
+                if os.path.exists(temp):os.unlink(temp)
+        else:
+            with path.open('xb') as f: f.write(data)
         self.path = path
+        self.disk_hash = hashlib.sha256(data).hexdigest()
 
     def tile_id(self, x, y):
         return self.grid[x*self.height+y]

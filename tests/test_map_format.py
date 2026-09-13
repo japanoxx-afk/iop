@@ -1,5 +1,7 @@
 import struct
 import unittest
+import tempfile
+from pathlib import Path
 from iop_map_format import MapDocument
 
 
@@ -16,6 +18,28 @@ def fixture(version=2):
 
 
 class NativeMaps(unittest.TestCase):
+    def test_overwrite_backup_and_external_change(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'existing.map';path.write_bytes(fixture())
+            doc=MapDocument.load(path);doc.paint(0,0,1)
+            doc.save(path,overwrite=True)
+            self.assertEqual(path.read_bytes(),doc.encode())
+            self.assertEqual(Path(str(path)+'.bak').read_bytes(),fixture())
+            doc.save(path,overwrite=True)
+            self.assertEqual(len(list(Path(folder).glob('*.map'))),1)
+            path.write_bytes(fixture())
+            with self.assertRaises(ValueError):doc.save(path,overwrite=True)
+            self.assertEqual(path.read_bytes(),fixture())
+
+    def test_save_as_preserves_existing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'existing.map';path.write_bytes(fixture())
+            doc=MapDocument.load(path)
+            with self.assertRaises(FileExistsError):doc.save(path)
+            target=Path(folder)/'copy.map';doc.save(target)
+            self.assertEqual(doc.path,target)
+            self.assertEqual(path.read_bytes(),fixture())
+
     def test_both_versions_roundtrip(self):
         for v in (1,2):
             raw=fixture(v);self.assertEqual(MapDocument.decode(raw).encode(),raw)

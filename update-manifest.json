@@ -1,7 +1,7 @@
 {
-  "version": "0.011",
+  "version": "0.012",
   "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "bafcef426eac0089893fa12119a70299a9e4159b67d53fccf8049812ba7eb88b",
-  "size": 14379018,
-  "notes": "빈 맵 평지 생성 및 시작 공간 검사, 타일 그림 선택·드래그 편집, 자원 클릭 배치"
+  "sha256": "fc2ab2c5337941c03da8aaf146c8b2a4d4f0d1b6f78d81d6bf124896db760ec7",
+  "size": 14381149,
+  "notes": "현재 맵 저장·직전 백업, 다른 이름으로 저장, 타일 일반·언덕·입구 분류 지정과 영구 보관"
 }
