@@ -184,19 +184,20 @@ class MapDocument:
     def restore(self, state):
         self.grid,self.minimap,self.starts,self.resources,self.objects=copy.deepcopy(state)
 
-    def preview(self, palette, scale=4):
+    def preview(self, palette, scale=4, region=None):
         """Render actual 32x32 tile pixels, not the embedded minimap."""
         rgb = [bytes(c) for c in palette]
+        x0,y0,x1,y1=region or (0,0,self.width,self.height)
         samples = [min(31, int((i+.5)*32/scale)) for i in range(scale)]
         cached = {}
-        for ident in set(self.grid):
+        for ident in {self.tile_id(x,y) for x in range(x0,x1) for y in range(y0,y1)}:
             pixels=self.tiles[ident][2:]
             cached[ident]=[b''.join(rgb[pixels[sy*32+sx]] for sx in samples) for sy in samples]
         rows=[]
-        for y in range(self.height):
-            tiles=[cached[self.tile_id(x,y)] for x in range(self.width)]
+        for y in range(y0,y1):
+            tiles=[cached[self.tile_id(x,y)] for x in range(x0,x1)]
             rows.extend(b''.join(t[sy] for t in tiles) for sy in range(scale))
-        return f'P6\n{self.width*scale} {self.height*scale}\n255\n'.encode()+b''.join(rows)
+        return f'P6\n{(x1-x0)*scale} {(y1-y0)*scale}\n255\n'.encode()+b''.join(rows)
 
     def tile_ppm(self, ident, palette):
         return b'P6\n32 32\n255\n'+b''.join(bytes(palette[p]) for p in self.tiles[ident][2:])

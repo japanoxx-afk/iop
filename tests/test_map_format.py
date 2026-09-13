@@ -18,6 +18,14 @@ def fixture(version=2):
 
 
 class NativeMaps(unittest.TestCase):
+    def test_viewport_pixels_match_full_preview(self):
+        doc=MapDocument.decode(fixture());palette=[(v,v,v) for v in range(256)]
+        for scale in (4,32,64):
+            full=doc.preview(palette,scale).split(b'\n',3)[3]
+            crop=doc.preview(palette,scale,(1,0,3,1)).split(b'\n',3)[3]
+            expected=b''.join(full[y*3*scale*3+scale*3:(y+1)*3*scale*3] for y in range(scale))
+            self.assertEqual(crop,expected)
+
     def test_overwrite_backup_and_external_change(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'existing.map';path.write_bytes(fixture())

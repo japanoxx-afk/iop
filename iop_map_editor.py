@@ -13,6 +13,7 @@ class MapEditor(ttk.Frame):
         self.launcher=launcher; self.doc=None; self.dirty=False
         self.history=[]; self.tile=0; self.patch=None; self.anchor=None
         self._stroke=False; self._last_cell=None
+        self.tile_order=[]
         self.pack(fill='both', expand=True)
         bar=ttk.Frame(self);bar.pack(fill='x')
         for label,command in [('맵 열기',self.open_map),('평지 빈 맵',self.blank),('시작 주변 평지',self.clear_spawns),('되돌리기',self.undo),('저장',self.save),('다른 이름으로 저장',lambda:self.save(True))]:
@@ -23,7 +24,7 @@ class MapEditor(ttk.Frame):
         tool.pack(side='left',padx=5)
         self.slot=ttk.Combobox(bar,state='readonly',width=4);self.slot.pack(side='left')
         self.zoom=tk.IntVar(value=4)
-        zoom=ttk.Combobox(bar,textvariable=self.zoom,values=(2,4,8,16),state='readonly',width=3)
+        zoom=ttk.Combobox(bar,textvariable=self.zoom,values=(2,4,8,16,24,32,48,64),state='readonly',width=3)
         zoom.pack(side='left',padx=5);zoom.bind('<<ComboboxSelected>>',lambda e:self.redraw())
         ttk.Label(self,text='우클릭: 평지로 지우기 · Ctrl+우클릭: 타일 채집 / 영역 첫 모서리 · Shift+우클릭: 영역 반대 모서리 · 좌클릭: 적용\n언덕은 절벽·경사로까지 포함해 영역 복사하세요. 청록 ◆ 자원 / 노랑 숫자 시작 위치',justify='left').pack(anchor='w',pady=4)
         self.status=tk.StringVar(value='맵을 열어 타일을 선택하세요.')
@@ -33,10 +34,10 @@ class MapEditor(ttk.Frame):
         self.tile_info=tk.StringVar(value='원본 맵의 타일 목록')
         ttk.Label(left,textvariable=self.tile_info).pack(anchor='w')
         self.swatch=ttk.Label(left);self.swatch.pack(anchor='w',pady=4)
-        self.category=tk.StringVar(value='미분류')
-        category=ttk.Combobox(left,textvariable=self.category,values=('미분류','일반','언덕','입구'),state='readonly')
-        category.pack(fill='x');category.bind('<<ComboboxSelected>>',self.label_tile)
-        ttk.Label(left,text='그림 확인 후 분류 지정 · 자동 저장').pack(anchor='w')
+        self.sort_order=tk.StringVar(value='번호순')
+        category=ttk.Combobox(left,textvariable=self.sort_order,values=('번호순','일반 먼저','언덕 먼저','입구 먼저','지상형 먼저','장애물형 먼저'),state='readonly')
+        category.pack(fill='x');category.bind('<<ComboboxSelected>>',self.sort_tiles)
+        ttk.Label(left,text='타일 정렬 · 지도 위 휠: 확대/축소').pack(anchor='w')
         self.gallery=ttk.Frame(left);self.gallery.pack(fill='x')
         paging=ttk.Frame(left);paging.pack(fill='x')
         ttk.Button(paging,text='◀',width=4,command=lambda:self.tile_page(-1)).pack(side='left')
@@ -51,8 +52,8 @@ class MapEditor(ttk.Frame):
         self.tiles.bind('<<ListboxSelect>>',self.select_tile)
         self.canvas=tk.Canvas(right,bg='#151515',highlightthickness=0)
         self.canvas.grid(row=0,column=0,sticky='nsew')
-        sx=ttk.Scrollbar(right,orient='horizontal',command=self.canvas.xview)
-        sy=ttk.Scrollbar(right,orient='vertical',command=self.canvas.yview)
+        sx=ttk.Scrollbar(right,orient='horizontal',command=lambda *a:self.scroll('x',*a))
+        sy=ttk.Scrollbar(right,orient='vertical',command=lambda *a:self.scroll('y',*a))
         sx.grid(row=1,column=0,sticky='ew');sy.grid(row=0,column=1,sticky='ns')
         right.rowconfigure(0,weight=1);right.columnconfigure(0,weight=1)
         self.canvas.configure(xscrollcommand=sx.set,yscrollcommand=sy.set)
@@ -62,6 +63,8 @@ class MapEditor(ttk.Frame):
         self.canvas.bind('<Button-3>',self.erase)
         self.canvas.bind('<Control-Button-3>',self.pick)
         self.canvas.bind('<Shift-Button-3>',self.copy_end)
+        self.canvas.bind('<MouseWheel>',self.wheel_zoom)
+        self.canvas.bind('<Configure>',lambda e:self.redraw())
 
     def open_map(self):
         if self.dirty and not messagebox.askyesno('맵 열기','저장하지 않은 변경을 버리고 다른 맵을 여시겠습니까?'):return
@@ -74,21 +77,17 @@ class MapEditor(ttk.Frame):
             self.doc=doc;self.palette=palette
             self.dirty=False;self.history=[];self.patch=None;self.anchor=None
             self.slot['values']=[f'P{i+1}' for i in range(doc.players)];self.slot.current(0)
-            self.tiles.delete(0,'end')
-            for i,tile in enumerate(doc.tiles):
-                self.tiles.insert('end',self.tile_label(i))
-            self.tiles.selection_set(0);self.select_tile();self.redraw()
+            self.tile=0;self.sort_tiles();self.select_tile();self.redraw()
             self.page=0;self.show_gallery()
         except Exception as exc:messagebox.showerror('맵 열기 실패',str(exc))
 
     def select_tile(self,event=None):
         selected=self.tiles.curselection()
         if self.doc is None or not selected:return
-        self.tile=selected[0]
+        self.tile=self.tile_order[selected[0]]
         self.tile_photo=tk.PhotoImage(data=self.doc.tile_ppm(self.tile,self.palette),format='PPM').zoom(2)
         self.swatch.configure(image=self.tile_photo)
         self.tile_info.set(self.tile_label(self.tile))
-        self.category.set(self.launcher.cfg.get('tile_categories',{}).get(self.tile_key(self.tile),'미분류'))
         self.mode.set('타일 브러시')
 
     def tile_key(self,tile):
@@ -99,14 +98,21 @@ class MapEditor(ttk.Frame):
         ground='지상형' if self.doc.is_ground(tile) else '장애물형'
         return f'{category} · {ground} #{tile:04d}'
 
-    def label_tile(self,event=None):
+    def sort_tiles(self,event=None):
         if self.doc is None:return
-        key=self.tile_key(self.tile)
-        labels=self.launcher.cfg.setdefault('tile_categories',{})
-        labels[key]=self.category.get()
-        self.launcher.save_network_config()
-        self.tiles.delete(self.tile);self.tiles.insert(self.tile,self.tile_label(self.tile))
-        self.tiles.selection_set(self.tile);self.tile_info.set(self.tile_label(self.tile));self.show_gallery()
+        order=self.sort_order.get()
+        def key(tile):
+            category=self.launcher.cfg.get('tile_categories',{}).get(self.tile_key(tile),'미분류')
+            if order=='번호순':return (0,tile)
+            if order=='지상형 먼저':return (not self.doc.is_ground(tile),tile)
+            if order=='장애물형 먼저':return (self.doc.is_ground(tile),tile)
+            return (category!=order.split()[0],tile)
+        self.tile_order=sorted(range(len(self.doc.tiles)),key=key)
+        self.tiles.delete(0,'end')
+        for tile in self.tile_order:self.tiles.insert('end',self.tile_label(tile))
+        index=self.tile_order.index(self.tile)
+        self.tiles.selection_set(index);self.tiles.see(index)
+        self.page=0;self.show_gallery()
 
     def choose_tool(self, mode):
         self.mode.set(mode)
@@ -117,12 +123,13 @@ class MapEditor(ttk.Frame):
         self.page=max(0,min((len(self.doc.tiles)-1)//8,self.page+delta));self.show_gallery()
 
     def gallery_pick(self,tile):
-        self.tiles.selection_clear(0,'end');self.tiles.selection_set(tile);self.tiles.see(tile);self.select_tile()
+        index=self.tile_order.index(tile)
+        self.tiles.selection_clear(0,'end');self.tiles.selection_set(index);self.tiles.see(index);self.select_tile()
 
     def show_gallery(self):
         for child in self.gallery.winfo_children():child.destroy()
         self.gallery_images=[]
-        for j,tile in enumerate(range(self.page*8,min(self.page*8+8,len(self.doc.tiles)))):
+        for j,tile in enumerate(self.tile_order[self.page*8:self.page*8+8]):
             photo=tk.PhotoImage(data=self.doc.tile_ppm(tile,self.palette),format='PPM')
             self.gallery_images.append(photo)
             category=self.launcher.cfg.get('tile_categories',{}).get(self.tile_key(tile),'미분류')
@@ -163,8 +170,7 @@ class MapEditor(ttk.Frame):
         if not (0<=x<self.doc.width and 0<=y<self.doc.height):return
         if self.mode.get()=='언덕/영역 복사':
             self.anchor=(x,y);self.status.set(f'복사 시작 ({x},{y}) · 반대 모서리에 Shift+우클릭');return
-        self.tiles.selection_clear(0,'end');self.tiles.selection_set(self.doc.tile_id(x,y))
-        self.tiles.see(self.doc.tile_id(x,y));self.select_tile()
+        self.gallery_pick(self.doc.tile_id(x,y))
 
     def erase(self,event):
         if self.doc is None:return 'break'
@@ -218,13 +224,35 @@ class MapEditor(ttk.Frame):
         if not self.history:return
         self.doc.restore(self.history.pop());self.dirty=True;self.redraw()
 
+    def scroll(self,axis,*args):
+        getattr(self.canvas,axis+'view')(*args);self.redraw()
+
+    def wheel_zoom(self,event):
+        if self.doc is None or not event.delta:return 'break'
+        old=self.zoom.get()
+        levels=(2,4,8,16,24,32,48,64)
+        index=levels.index(old)
+        new=levels[max(0,min(len(levels)-1,index+(1 if event.delta>0 else -1)))]
+        if new==old:return 'break'
+        x=self.canvas.canvasx(event.x)/old;y=self.canvas.canvasy(event.y)/old
+        self.stroke_end();self.zoom.set(new)
+        self.canvas.configure(scrollregion=(0,0,self.doc.width*new,self.doc.height*new))
+        self.canvas.xview_moveto(max(0,x*new-event.x)/(self.doc.width*new))
+        self.canvas.yview_moveto(max(0,y*new-event.y)/(self.doc.height*new))
+        self.redraw()
+        return 'break'
+
     def redraw(self):
         if self.doc is None:return
         scale=self.zoom.get()
-        self.photo=tk.PhotoImage(data=self.doc.preview(self.palette,scale),format='PPM')
-        self.canvas.delete('all');self.canvas.create_image(0,0,image=self.photo,anchor='nw')
+        self.canvas.configure(scrollregion=(0,0,self.doc.width*scale,self.doc.height*scale))
+        x0=max(0,min(self.doc.width-1,int(self.canvas.canvasx(0)//scale)))
+        y0=max(0,min(self.doc.height-1,int(self.canvas.canvasy(0)//scale)))
+        x1=min(self.doc.width,x0+max(1,self.canvas.winfo_width())//scale+2)
+        y1=min(self.doc.height,y0+max(1,self.canvas.winfo_height())//scale+2)
+        self.photo=tk.PhotoImage(data=self.doc.preview(self.palette,scale,(x0,y0,x1,y1)),format='PPM')
+        self.canvas.delete('all');self.canvas.create_image(x0*scale,y0*scale,image=self.photo,anchor='nw')
         draw_resources(self.canvas,self.doc.resources,scale);draw_starts(self.canvas,self.doc.starts,scale)
-        self.canvas.configure(scrollregion=(0,0,self.photo.width(),self.photo.height()))
         self.status.set(f'{self.doc.path.name} | {self.doc.width}×{self.doc.height} | 자원 {len(self.doc.resources)}개'+(' · 저장하지 않은 변경' if self.dirty else ''))
 
     def save(self, save_as=False):

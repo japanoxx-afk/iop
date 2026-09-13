@@ -1,7 +1,7 @@
 {
-  "version": "0.013",
+  "version": "0.014",
   "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/IOPLauncher.exe",
-  "sha256": "77f743218b264e47bd08682ca6b6923d1a68f2900e949be85cc98c0505a0137a",
-  "size": 14382218,
-  "notes": "우클릭 지형 지우기, 에디터 최대 확대 16, 서버 연결 불가 시 로컬 실행, 창 확대 및 맵뷰어 기본 배율 3"
+  "sha256": "ad06d4a3f79eff25b24b9d501f55d809a4287f28cda42c07b159a6cfa5c1b218",
+  "size": 14384002,
+  "notes": "맵 에디터 휠 확대·축소와 최대 배율 64, 화면 영역 렌더링, 타일 정렬 드롭다운"
 }
