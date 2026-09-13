@@ -1,7 +1,7 @@
 {
-  "version": "0.016",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.016/IOPLauncher_Server.exe",
-  "sha256": "32ac0cf815fd748d5d1cfc2e49839af808830e26707f87b1607e2af252e85e58",
-  "size": 14383740,
-  "notes": "영상 자동 녹화 제거, 멀티맵 동기화 비교 제외. 게임 내부 리플레이는 아직 미지원."
+  "version": "0.017",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.017/IOPLauncher_Server.exe",
+  "sha256": "f7d105ef93ddd8bdb512470b52c9d2c26110499fdf3c82189fde5ed535bde598",
+  "size": 14388657,
+  "notes": "단축키·IP 설정 공용 저장 및 기존 설정 이전, 업데이트 교체·재시작 수정"
 }

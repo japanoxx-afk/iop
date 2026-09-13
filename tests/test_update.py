@@ -63,6 +63,10 @@ class UpdateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, mock.patch("iop_update.subprocess.Popen") as popen:
             root = Path(directory); downloaded = root / "new.exe"; destination = root / "launcher.exe"
             downloaded.write_bytes(b"new"); destination.write_bytes(b"old")
+            def start(args,**kwargs):
+                Path(args[args.index('-Ready')+1]).touch()
+                process=mock.Mock();process.poll.return_value=None;return process
+            popen.side_effect=start
             iop_update.schedule_replace(downloaded, destination, "0.008")
             flags = popen.call_args.kwargs["creationflags"]
             self.assertTrue(flags & iop_update.subprocess.CREATE_NO_WINDOW)

@@ -9,6 +9,7 @@ class OfflineLaunch(unittest.TestCase):
         launcher=Mock()
         launcher._need_game_dir.return_value=False
         launcher._launch_pending=False;launcher._game_process=None
+        launcher._update_pending=False
         launcher._hotkeys_dirty=False;launcher.game_dir='game';launcher.cfg={'auto_record_video':False}
         launcher.recording_tab=None
         launcher.mode_var.get.return_value='window'

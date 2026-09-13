@@ -147,6 +147,7 @@ class ServerTab:
         self._job(read,done)
 
     def _server_on(self):
+        if getattr(self,'_update_pending',False):return
         try:
             ip=resolve_server(self.host_ip.get())
             if self._need_game_dir(): return
@@ -194,6 +195,7 @@ class ServerTab:
         self._job(check,lambda result,error:self._log_server(error or result))
 
     def launch_private_game(self):
+        if getattr(self,'_update_pending',False):return
         if self._need_game_dir() or self._launch_pending: return
         if self._game_process and self._game_process.poll() is None:
             messagebox.showinfo('게임 실행 중','실행 중인 게임을 종료한 뒤 다시 시작하세요.'); return

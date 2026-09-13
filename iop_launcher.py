@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.016"
+VERSION = "0.017"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -112,7 +112,8 @@ if getattr(sys, "frozen", False):
     EXE_DIR = os.path.dirname(sys.executable)
 else:
     EXE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG = os.path.join(EXE_DIR, "iop_launcher_config.json")
+import iop_config
+CONFIG = str(iop_config.config_path())
 
 sys.path.insert(0, EXE_DIR)
 import iop_balance as iob          # 밸런스 읽기/쓰기 로직 재사용
@@ -121,18 +122,10 @@ RES_FILES = ("Gubattle.res", "Gweapon.res")
 DEFAULTS = {"mode": "window", "game_dir": ""}
 
 def load_cfg():
-    try:
-        with open(CONFIG, "r", encoding="utf-8") as f:
-            return {**DEFAULTS, **json.load(f)}
-    except Exception:
-        return dict(DEFAULTS)
+    return {**DEFAULTS, **iop_config.load(CONFIG,EXE_DIR)}
 
 def save_cfg(cfg):
-    try:
-        with open(CONFIG, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
+    iop_config.save(CONFIG,cfg)
 
 def is_game_dir(d):
     return bool(d) and os.path.exists(os.path.join(d, "iop.exe"))
@@ -646,13 +639,16 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
 
     # ---------------- 자동 업데이트 ----------------
     def check_update(self):
+        if getattr(self,'_update_pending',False):return
         if self.server.alive:
             messagebox.showinfo('서버 실행 중','서버 OFF 후 업데이트를 확인하세요.'); return
+        self._update_pending=True
         self.set_status("업데이트 확인 중...")
         from iop_update import fetch_manifest, version_tuple
         def read():
             return fetch_manifest()
         def done(manifest, error):
+            self._update_pending=False
             if error:
                 messagebox.showerror("업데이트 오류", "GitHub 업데이트 확인 실패:\n" + error)
                 self.set_status("업데이트 확인 실패")
@@ -677,21 +673,25 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
             return
 
         from iop_update import download, schedule_replace
+        self._update_pending=True
         self.set_status(f"업데이트 다운로드 중... (v{manifest['version']})")
         def receive():
             return download(manifest)
         def done(path, error):
             if error:
+                self._update_pending=False
                 messagebox.showerror("업데이트 오류", "다운로드 또는 SHA-256 검증 실패:\n" + error)
                 self.set_status("업데이트 다운로드 실패")
                 return
             try:
+                self._save_network()
+                messagebox.showinfo("업데이트", "확인을 누르면 업데이트를 적용하고 런처를 자동 재시작합니다.")
                 schedule_replace(path, sys.executable, manifest["version"])
             except Exception as exc:
+                self._update_pending=False
                 path.unlink(missing_ok=True)
                 messagebox.showerror("업데이트 오류", str(exc))
                 return
-            messagebox.showinfo("업데이트", "검증된 업데이트를 적용합니다. 런처가 자동 재시작됩니다.")
             self.destroy()
         self._job(receive, done)
 

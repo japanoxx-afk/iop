@@ -9,6 +9,7 @@ import sys
 import tempfile
 import urllib.request
 import uuid
+import time
 
 MANIFEST_URL = "https://raw.githubusercontent.com/japanoxx-afk/iop/main/update-manifest.json"
 ALLOWED_PREFIX = "https://raw.githubusercontent.com/japanoxx-afk/iop/"
@@ -89,19 +90,58 @@ def schedule_replace(downloaded, destination, version):
     marker = destination.with_name("iop_update_result.json")
     script = Path(tempfile.gettempdir()) / ("IOPLauncher-update-" + uuid.uuid4().hex + ".ps1")
     # Arguments are passed separately so paths are never interpolated into PowerShell source.
-    body = r'''param([int]$OldPid,[string]$Source,[string]$Destination,[string]$Marker,[string]$Version)
+    ready = script.with_suffix('.ready')
+    body = r'''param([int]$OldPid,[string]$Source,[string]$Destination,[string]$Marker,[string]$Version,[string]$Ready)
 $ErrorActionPreference='Stop'
+$stage=$Destination+'.new-'+[guid]::NewGuid().ToString('N')
+$phase='waiting'
 try {
-  Wait-Process -Id $OldPid -Timeout 30 -ErrorAction SilentlyContinue
-  $backup=$Destination+'.update-backup'
-  if (Test-Path -LiteralPath $backup) { Remove-Item -LiteralPath $backup -Force }
-  if (Test-Path -LiteralPath $Destination) { Copy-Item -LiteralPath $Destination -Destination $backup -Force }
-  Move-Item -LiteralPath $Source -Destination $Destination -Force
-  @{ok=$true;version=$Version;time=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $Marker -Encoding UTF8
-  Start-Process -FilePath $Destination -WorkingDirectory (Split-Path -LiteralPath $Destination)
+  Set-Content -LiteralPath $Ready -Value 'ready'
+  $deadline=(Get-Date).AddSeconds(120)
+  while (Get-Process -Id $OldPid -ErrorAction SilentlyContinue) {
+    if ((Get-Date) -gt $deadline) { throw '기존 런처가 종료되지 않았습니다.' }
+    Start-Sleep -Milliseconds 200
+  }
+  $phase='replacing'
+  Copy-Item -LiteralPath $Source -Destination $stage
+  $backup=$Destination+'.update-backup-'+[guid]::NewGuid().ToString('N')
+  $deadline=(Get-Date).AddSeconds(60)
+  while ($true) {
+    try {
+      if ([IO.File]::Exists($Destination)) { [IO.File]::Replace($stage,$Destination,$backup) }
+      else { [IO.File]::Move($stage,$Destination) }
+      break
+    } catch {
+      if ((Get-Date) -gt $deadline) { throw }
+      Start-Sleep -Milliseconds 300
+    }
+  }
+  $sha=[Security.Cryptography.SHA256]::Create()
+  try {
+    $sourceHash=[BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($Source)))
+    $destinationHash=[BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($Destination)))
+    if ($sourceHash -ne $destinationHash) { throw '교체 파일 검증 실패' }
+  } finally { $sha.Dispose() }
+  $phase='restarting'
+  @{ok=$true;version=$Version;time=(Get-Date).ToString('o');state=$phase} | ConvertTo-Json | Set-Content -LiteralPath $Marker -Encoding UTF8
+  $launch=New-Object Diagnostics.ProcessStartInfo
+  $launch.FileName=$Destination
+  $launch.WorkingDirectory=[IO.Path]::GetDirectoryName($Destination)
+  $launch.UseShellExecute=$false
+  $launch.CreateNoWindow=$true
+  $launch.WindowStyle=[Diagnostics.ProcessWindowStyle]::Hidden
+  $launch.EnvironmentVariables['PYINSTALLER_RESET_ENVIRONMENT']='1'
+  $child=[Diagnostics.Process]::Start($launch)
+  Start-Sleep -Seconds 2
+  if ($child.HasExited -and $child.ExitCode -ne 0) { throw ('새 런처가 종료되었습니다: '+$child.ExitCode) }
+  Remove-Item -LiteralPath $Source -Force -ErrorAction SilentlyContinue
 } catch {
-  @{ok=$false;version=$Version;time=(Get-Date).ToString('o');error=$_.Exception.Message} | ConvertTo-Json | Set-Content -LiteralPath $Marker -Encoding UTF8
-} finally { Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue }
+  @{ok=$false;version=$Version;time=(Get-Date).ToString('o');state=$phase;error=$_.Exception.Message} | ConvertTo-Json | Set-Content -LiteralPath $Marker -Encoding UTF8
+} finally {
+  Remove-Item -LiteralPath $stage -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $Ready -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
+}
 '''
     script.write_text(body, encoding="utf-8-sig")
     # DETACHED_PROCESS silently prevents powershell.exe from starting on some
@@ -114,7 +154,13 @@ try {
         "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
         "-File", str(script), "-OldPid", str(os.getpid()), "-Source", str(downloaded),
         "-Destination", str(destination), "-Marker", str(marker), "-Version", str(version),
+        "-Ready", str(ready),
     ], creationflags=flags, close_fds=True)
+    deadline=time.monotonic()+10
+    while not ready.exists():
+        if process.poll() is not None or time.monotonic()>deadline:
+            raise RuntimeError('업데이트 도우미를 시작하지 못했습니다. 기존 런처를 유지합니다.')
+        time.sleep(.05)
     return process
 
 
