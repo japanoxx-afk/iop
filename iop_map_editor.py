@@ -11,9 +11,10 @@ class MapEditor(ttk.Frame):
         super().__init__(parent, padding=8)
         self.launcher=launcher; self.doc=None; self.dirty=False
         self.history=[]; self.tile=0; self.patch=None; self.anchor=None
+        self._stroke=False; self._last_cell=None
         self.pack(fill='both', expand=True)
         bar=ttk.Frame(self);bar.pack(fill='x')
-        for label,command in [('맵 열기',self.open_map),('선택 타일로 빈 맵',self.blank),('되돌리기',self.undo),('새 맵으로 저장',self.save)]:
+        for label,command in [('맵 열기',self.open_map),('평지 빈 맵',self.blank),('시작 주변 평지',self.clear_spawns),('되돌리기',self.undo),('새 맵으로 저장',self.save)]:
             ttk.Button(bar,text=label,command=command).pack(side='left',padx=2)
         self.mode=tk.StringVar(value='시작 위치')
         tool=ttk.Combobox(bar,textvariable=self.mode,values=('시작 위치','타일 브러시','자원 추가','자원 삭제','언덕/영역 복사'),state='readonly',width=16)
@@ -30,6 +31,14 @@ class MapEditor(ttk.Frame):
         self.tile_info=tk.StringVar(value='원본 맵의 타일 목록')
         ttk.Label(left,textvariable=self.tile_info).pack(anchor='w')
         self.swatch=ttk.Label(left);self.swatch.pack(anchor='w',pady=4)
+        self.gallery=ttk.Frame(left);self.gallery.pack(fill='x')
+        paging=ttk.Frame(left);paging.pack(fill='x')
+        ttk.Button(paging,text='◀',width=4,command=lambda:self.tile_page(-1)).pack(side='left')
+        ttk.Button(paging,text='▶',width=4,command=lambda:self.tile_page(1)).pack(side='right')
+        self.page=0;self.gallery_images=[]
+        ttk.Button(left,text='◆ 자원 타일 선택',command=lambda:self.choose_tool('자원 추가')).pack(fill='x',pady=3)
+        ttk.Button(left,text='자원 지우개',command=lambda:self.choose_tool('자원 삭제')).pack(fill='x',pady=3)
+        ttk.Label(left,text='타일 선택 → 왼쪽 드래그\n자원 선택 → 지도 클릭').pack(anchor='w')
         self.tiles=tk.Listbox(left,exportselection=False,width=23)
         scroll=ttk.Scrollbar(left,command=self.tiles.yview);self.tiles.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right',fill='y');self.tiles.pack(fill='both',expand=True)
@@ -41,7 +50,9 @@ class MapEditor(ttk.Frame):
         sx.grid(row=1,column=0,sticky='ew');sy.grid(row=0,column=1,sticky='ns')
         right.rowconfigure(0,weight=1);right.columnconfigure(0,weight=1)
         self.canvas.configure(xscrollcommand=sx.set,yscrollcommand=sy.set)
-        self.canvas.bind('<Button-1>',self.place)
+        self.canvas.bind('<Button-1>',self.stroke_start)
+        self.canvas.bind('<B1-Motion>',self.stroke_move)
+        self.canvas.bind('<ButtonRelease-1>',self.stroke_end)
         self.canvas.bind('<Button-3>',self.pick)
         self.canvas.bind('<Shift-Button-3>',self.copy_end)
 
@@ -61,6 +72,7 @@ class MapEditor(ttk.Frame):
                 flags=int.from_bytes(tile[:2],'little')
                 self.tiles.insert('end',f'타일 {i:04d} · 속성 {flags:04X}')
             self.tiles.selection_set(0);self.select_tile();self.redraw()
+            self.page=0;self.show_gallery()
         except Exception as exc:messagebox.showerror('맵 열기 실패',str(exc))
 
     def select_tile(self,event=None):
@@ -70,6 +82,51 @@ class MapEditor(ttk.Frame):
         self.tile_photo=tk.PhotoImage(data=self.doc.tile_ppm(self.tile,self.palette),format='PPM').zoom(3)
         self.swatch.configure(image=self.tile_photo)
         self.tile_info.set(f'타일 {self.tile} · 그래픽+통행 속성')
+        self.mode.set('타일 브러시')
+
+    def choose_tool(self, mode):
+        self.mode.set(mode)
+        self.status.set('◆ 자원 선택됨 · 지도에 왼쪽 클릭하면 배치됩니다.' if mode=='자원 추가' else '지울 자원을 클릭하세요.')
+
+    def tile_page(self,delta):
+        if self.doc is None:return
+        self.page=max(0,min((len(self.doc.tiles)-1)//12,self.page+delta));self.show_gallery()
+
+    def gallery_pick(self,tile):
+        self.tiles.selection_clear(0,'end');self.tiles.selection_set(tile);self.tiles.see(tile);self.select_tile()
+
+    def show_gallery(self):
+        for child in self.gallery.winfo_children():child.destroy()
+        self.gallery_images=[]
+        for j,tile in enumerate(range(self.page*12,min(self.page*12+12,len(self.doc.tiles)))):
+            photo=tk.PhotoImage(data=self.doc.tile_ppm(tile,self.palette),format='PPM')
+            self.gallery_images.append(photo)
+            ttk.Button(self.gallery,image=photo,text=str(tile),compound='top',command=lambda t=tile:self.gallery_pick(t)).grid(row=j//4,column=j%4)
+
+    def stroke_start(self,event):
+        self._stroke=False; self._last_cell=None
+        self.place(event)
+        self._stroke=True; self._last_cell=self.coords(event)
+
+    def stroke_move(self,event):
+        if not self._stroke or self.mode.get()!='타일 브러시' or self.doc is None:return
+        end=self.coords(event);start=self._last_cell
+        if start is None or end==start:return
+        count=max(abs(end[0]-start[0]),abs(end[1]-start[1]))
+        for step in range(1,count+1):
+            x=round(start[0]+(end[0]-start[0])*step/count)
+            y=round(start[1]+(end[1]-start[1])*step/count)
+            if 0<=x<self.doc.width and 0<=y<self.doc.height:self.doc.paint(x,y,self.tile)
+        self._last_cell=end; self.dirty=True;self.redraw()
+
+    def stroke_end(self,event=None):
+        self._stroke=False;self._last_cell=None
+
+    def clear_spawns(self):
+        if self.doc is None:return
+        try:
+            self.checkpoint();self.doc.clear_spawns();self.dirty=True;self.redraw()
+        except Exception as exc:messagebox.showerror('시작 위치 확인',str(exc))
 
     def coords(self,event):
         scale=self.zoom.get()
@@ -120,8 +177,8 @@ class MapEditor(ttk.Frame):
 
     def blank(self):
         if self.doc is None:return
-        if not messagebox.askyesno('빈 맵 만들기','현재 크기를 유지하고 선택 타일로 전체 지형을 채웁니다. 자원·장식은 제거되며 시작 위치는 유지됩니다. 진행할까요?'):return
-        self.checkpoint();self.doc.blank(self.tile);self.dirty=True;self.redraw()
+        if not messagebox.askyesno('빈 맵 만들기','지상용 평지로 전체 지형을 채웁니다. 자원·장식은 제거되며 시작 위치는 유지됩니다. 진행할까요?'):return
+        self.checkpoint();self.doc.blank(self.doc.ground_tile());self.dirty=True;self.redraw()
 
     def undo(self):
         if not self.history:return
@@ -138,6 +195,9 @@ class MapEditor(ttk.Frame):
 
     def save(self):
         if self.doc is None:return
+        issues=self.doc.spawn_issues()
+        if issues:
+            messagebox.showerror('시작 위치 확인 필요','\n'.join(issues));return
         if self.launcher.server.alive or self.launcher._launch_pending or (self.launcher._game_process and self.launcher._game_process.poll() is None):
             messagebox.showinfo('저장 대기','게임과 서버를 종료한 뒤 맵을 저장하세요.');return
         path=filedialog.asksaveasfilename(initialdir=self.launcher.gp('map','multi'),initialfile=self.doc.path.stem+'_custom.map',defaultextension='.map',filetypes=[('IOP 맵','*.map')])

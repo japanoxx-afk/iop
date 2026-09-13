@@ -50,4 +50,9 @@ class NativeMaps(unittest.TestCase):
 
     def test_blank_clears_resources_and_objects(self):
         d=MapDocument.decode(fixture());d.blank(1);r=MapDocument.decode(d.encode())
-        self.assertEqual(r.grid,[1]*6);self.assertEqual(r.resources,[]);self.assertEqual(r.objects,b'')
+        self.assertEqual(r.grid,[0]*6);self.assertEqual(r.resources,[]);self.assertEqual(r.objects,b'')
+
+    def test_ground_classification(self):
+        d=MapDocument.decode(fixture())
+        self.assertTrue(d.is_ground(0));self.assertFalse(d.is_ground(1))
+        self.assertEqual(d.ground_tile(),0)

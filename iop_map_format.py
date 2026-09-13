@@ -117,9 +117,46 @@ class MapDocument:
                 [self.minimap[y*self.width+x] for y in range(y1,y2+1) for x in range(x1,x2+1)])
 
     def blank(self, tile):
+        if not self.is_ground(tile):
+            tile = self.ground_tile()
         self.resources=[]; self.objects=b''
         for x in range(self.width):
             for y in range(self.height): self.paint(x,y,tile)
+
+    def is_ground(self, tile):
+        flags = int.from_bytes(self.tiles[tile][:2], 'little')
+        return bool(flags & 0xf003) and not bool(flags & 0x81c)
+
+    def ground_tile(self):
+        from collections import Counter
+        for tile,_ in Counter(self.grid).most_common():
+            if self.is_ground(tile): return tile
+        for tile in range(len(self.tiles)):
+            if self.is_ground(tile): return tile
+        raise ValueError('이 맵에 평지 타일이 없습니다.')
+
+    def spawn_issues(self):
+        issues=[]
+        for i,(x,y) in enumerate(self.starts,1):
+            if x<5 or y<5 or x>=self.width-5 or y>=self.height-5:
+                issues.append(f'P{i}: 맵 가장자리에서 5칸 이상 안쪽에 배치하세요.')
+            elif any(not self.is_ground(self.tile_id(xx,yy)) for xx in range(x-4,x+5) for yy in range(y-4,y+5)):
+                issues.append(f'P{i}: 시작 주변에 장애물이 있습니다. 시작 주변 평지 버튼을 사용하세요.')
+            if any(abs(x-rx)<=4 and abs(y-ry)<=4 for rx,ry in self.resources):
+                issues.append(f'P{i}: 시작 주변에 자원이 겹칩니다.')
+        return issues
+
+    def clear_spawns(self):
+        if any(x<5 or y<5 or x>=self.width-5 or y>=self.height-5 for x,y in self.starts):
+            raise ValueError('먼저 시작 위치를 맵 가장자리에서 5칸 이상 안쪽으로 옮기세요.')
+        tile=self.ground_tile()
+        for x,y in self.starts:
+            for xx in range(x-4,x+5):
+                for yy in range(y-4,y+5): self.paint(xx,yy,tile)
+        occupied=lambda x,y:any(abs(x-sx)<=4 and abs(y-sy)<=4 for sx,sy in self.starts)
+        self.resources=[(x,y) for x,y in self.resources if not occupied(x,y)]
+        self.objects=b''.join(self.objects[i:i+8] for i in range(0,len(self.objects),8)
+                              if not occupied(*struct.unpack_from('<HH',self.objects,i)))
 
     def snapshot(self):
         return (self.grid[:], self.minimap[:], self.starts[:], self.resources[:], self.objects)
