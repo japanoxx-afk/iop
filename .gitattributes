@@ -1,0 +1,6 @@
+game-assets/v*/ddraw.ini binary
+game-assets/v*/*.dll binary
+game-assets/v*/*.exe binary
+release/*.exe binary
+release/v*/*.exe binary
+release/v*/*.zip binary
