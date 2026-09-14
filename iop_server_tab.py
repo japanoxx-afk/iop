@@ -152,6 +152,9 @@ class ServerTab:
             ip=resolve_server(self.host_ip.get())
             if self._need_game_dir(): return
             from iop_sync import fix_flame, manifest
+            from iop_assets import ensure_game_files
+            assets=ensure_game_files(self.game_dir)
+            diagnostics.event('game_files_checked',**assets)
             fix_flame(self.game_dir)
             manifest(self.game_dir)
             self.server.start(ip,self._server_data(),game_dir=self.game_dir)
@@ -213,6 +216,9 @@ class ServerTab:
         def prepare():
             from iop_sync import fix_flame,manifest,fetch_manifest,compare
             from iop_hotkeys import apply,is_applied
+            from iop_assets import ensure_game_files
+            assets=ensure_game_files(game_dir)
+            diagnostics.event('game_files_checked',**assets)
             changed=0
             if not is_applied(game_dir,hotkeys):
                 changed=apply(game_dir,hotkeys)

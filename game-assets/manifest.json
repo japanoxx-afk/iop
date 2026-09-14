@@ -1,0 +1,21 @@
+{
+  "protocol": 1,
+  "version": "0.019",
+  "files": {
+    "iop.exe": {
+      "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/game-assets/v0.019/iop.exe",
+      "size": 1787859,
+      "sha256": "489f2217dc13e9b7b8b3fee97bd78843e70a2166f4ce50efc429c5cb1ec86028"
+    },
+    "ddraw.dll": {
+      "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/game-assets/v0.019/ddraw.dll",
+      "size": 411648,
+      "sha256": "85e0f7d530dfda134793a57cb3e76b0287dcc96892ee57162dd68f47283b03a9"
+    },
+    "ddraw.ini": {
+      "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/game-assets/v0.019/ddraw.ini",
+      "size": 30581,
+      "sha256": "2571322a64a767022627ed076f9539179eff322efa336016e8af1f2337cc8fcb"
+    }
+  }
+}

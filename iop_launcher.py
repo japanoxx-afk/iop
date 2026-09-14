@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.018"
+VERSION = "0.019"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -113,6 +113,7 @@ if getattr(sys, "frozen", False):
 else:
     EXE_DIR = os.path.dirname(os.path.abspath(__file__))
 import iop_config
+import iop_diagnostics as diagnostics
 CONFIG = str(iop_config.config_path())
 
 sys.path.insert(0, EXE_DIR)
@@ -183,7 +184,27 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
                     "우측 상단 [게임 폴더 지정] 버튼으로 언제든 다시 지정할 수 있습니다.")
 
         if self.game_dir:
+            if result and result.get("ok"):
+                self._install_update_graphics()
             self._check_local_sync()
+
+    def _install_update_graphics(self):
+        game_dir = self.game_dir
+        self.set_status("게임 그래픽 호환 파일 확인 중...")
+        def work():
+            from iop_assets import ensure_graphics
+            return ensure_graphics(game_dir)
+        def done(installed, error):
+            if error:
+                diagnostics.event("graphics_install_error",error=error)
+                messagebox.showerror("그래픽 파일 설치 실패", error)
+                return
+            diagnostics.event("graphics_files_checked",installed=installed)
+            if installed:
+                self.set_status("게임 그래픽 호환 파일 설치: " + ", ".join(installed))
+            else:
+                self.set_status("게임 그래픽 호환 파일 확인 완료")
+        self._job(work,done)
 
     # ---- 게임 폴더 결정/경로 ----
     def _resolve_game_dir(self):

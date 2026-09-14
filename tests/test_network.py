@@ -45,7 +45,7 @@ class HostsTests(unittest.TestCase):
         with self.assertRaises(ValueError): hosts_content(b'',"26.1.2.3\nattacker")
 
     def test_client_patch_only_changes_address(self):
-        source=Path(r'C:\Users\seo\Downloads\DGGL\Games\IOP_Win\iop.exe')
+        source=Path(__file__).resolve().parents[1]/'game-assets/v0.019/iop.exe'
         if not source.exists(): self.skipTest('reference client unavailable')
         original=source.read_bytes()
         self.assertEqual(hashlib.sha256(original[:ADDRESS_OFFSET]+ORIGINAL_ADDRESS+original[ADDRESS_OFFSET+16:]).hexdigest(),ORIGINAL_HASH)

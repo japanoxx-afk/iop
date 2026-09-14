@@ -6,6 +6,7 @@ import iop_hotkeys as h
 from iop_sync import manifest,compare
 from iop_network import patched_bytes
 ROOT=Path(r'C:\Users\seo\Downloads\DGGL\Games\IOP_Win')
+CANONICAL_EXE=Path(__file__).resolve().parents[1]/'game-assets/v0.019/iop.exe'
 PROFILE={'0a000003:05000002':'K'}
 class HotkeyTests(unittest.TestCase):
     def test_duplicate_and_reserved_rejected(self):
@@ -13,7 +14,7 @@ class HotkeyTests(unittest.TestCase):
         for profile in ({'0a000003:05000002':'F'},{'0a000003:05000002':'J'},{'unknown':'K'}):
             with self.assertRaises(ValueError):h.validate(profile)
     def test_exe_roundtrip_and_foreign_changes_rejected(self):
-        original=(ROOT/'iop.exe').read_bytes();new=h.patch_exe(original,PROFILE)
+        original=CANONICAL_EXE.read_bytes();new=h.patch_exe(original,PROFILE)
         self.assertEqual(h.normalize_exe(new),original)
         self.assertEqual(h.patch_exe(new,{}),original)
         self.assertEqual(h.patch_exe(new,PROFILE),new)
@@ -24,6 +25,9 @@ class HotkeyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);(root/'data').mkdir()
             for name in ('iop.exe','data/Button.res','data/Kbutton.res','data/Gweapon.res'):shutil.copy2(ROOT/name,root/name)
+            (root/'iop.exe').write_bytes(CANONICAL_EXE.read_bytes())
+            for name in ('Button.res','Kbutton.res'):
+                p=root/'data'/name;p.write_bytes(h.normalize_labels(p.read_bytes()))
             before={p:p.read_bytes() for p in root.rglob('*') if p.is_file()};base=manifest(root)
             self.assertEqual(h.apply(root,PROFILE),3)
             self.assertEqual(compare(base,manifest(root)),4)
@@ -39,7 +43,7 @@ class HotkeyTests(unittest.TestCase):
             self.assertEqual((root/'iop.exe').read_bytes(),before[root/'iop.exe'])
             self.assertGreaterEqual(len(list(root.rglob('*.bak'))),3)
     def test_all_single_valid_changes_fit_and_normalize(self):
-        original=(ROOT/'iop.exe').read_bytes();tested=0
+        original=CANONICAL_EXE.read_bytes();tested=0
         for ident in h.DEFAULTS:
             for key in h.KEYS:
                 profile={ident:key}

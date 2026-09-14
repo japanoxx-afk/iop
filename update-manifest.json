@@ -1,7 +1,7 @@
 {
-  "version": "0.018",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.018/IOPLauncher_Server.exe",
-  "sha256": "06185fd0da96044fc824d369bdf731fead33c0ada18337c77f4c4354f277ab5c",
-  "size": 14389818,
-  "notes": "화면 효과 메모리 접근 오류 우회, 비정상 종료 분석 ZIP·덤프 자동 수집"
+  "version": "0.019",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.019/IOPLauncher_Server.exe",
+  "sha256": "33272cb7324f25a10d833d1a8172ad7b33e30714722991fb4971451b5b216eda",
+  "size": 14396351,
+  "notes": "cnc-ddraw 자동 설치, GitHub 기준 iop.exe 복구, 검은 화면 진단 보강"
 }

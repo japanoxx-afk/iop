@@ -81,7 +81,7 @@ class LaunchTests(unittest.TestCase):
                 except Exception as exc: done(None,str(exc))
                 else: done(result,None)
         app=Fake()
-        with patch('iop_hotkeys.apply'), patch('iop_sync.fix_flame'), patch('iop_server_tab.hosts_mapping',return_value=None), patch('iop_server_tab.resolve_server',return_value='26.1.2.3'), patch('iop_server_tab.prepare_private_exe') as prepare, patch('iop_server_tab.subprocess.Popen') as spawn, patch('iop_server_tab.messagebox.showerror') as error:
+        with patch('iop_assets.ensure_game_files',return_value={'iop_restored':False,'graphics_installed':[]}), patch('iop_hotkeys.apply'), patch('iop_sync.fix_flame'), patch('iop_server_tab.hosts_mapping',return_value=None), patch('iop_server_tab.resolve_server',return_value='26.1.2.3'), patch('iop_server_tab.prepare_private_exe') as prepare, patch('iop_server_tab.subprocess.Popen') as spawn, patch('iop_server_tab.messagebox.showerror') as error:
             ServerTab.launch_private_game(app)
             prepare.assert_not_called(); spawn.assert_not_called(); error.assert_called_once()
             self.assertFalse(app._launch_pending)

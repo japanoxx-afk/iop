@@ -24,7 +24,7 @@ def configure(home):
         base=Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'IOPLauncher/diagnostics'
         (base/name).mkdir(parents=True,exist_ok=True)
     _directory=base/name
-    event('launcher_start',version='0.018',windows=platform.platform(),python=platform.python_version(),architecture=platform.machine())
+    event('launcher_start',version='0.019',windows=platform.platform(),python=platform.python_version(),architecture=platform.machine())
     return _directory
 
 def event(kind,**fields):
@@ -62,6 +62,8 @@ def snapshot(game_dir,pid=None):
     if os.name!='nt': return
     scripts={
         'graphics': 'Get-CimInstance Win32_VideoController | Select-Object Name,DriverVersion,DriverDate,VideoModeDescription | ConvertTo-Json -Depth 3',
+        'display_environment': "Get-CimInstance Win32_DesktopMonitor | Select-Object Name,ScreenWidth,ScreenHeight,PixelsPerXLogicalInch,PixelsPerYLogicalInch | ConvertTo-Json -Depth 3",
+        'iop_process_candidates': "Get-CimInstance Win32_Process -Filter \"Name='iop.exe'\" | Select-Object ProcessId,ExecutablePath,CreationDate,CommandLine | ConvertTo-Json -Depth 3",
         'game_windows_events': "$since=(Get-Date).AddMinutes(-15); Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$since; Id=1000,1001,1002} -MaxEvents 100 -ErrorAction SilentlyContinue | Where-Object { $_.Message -match '(?i)iop[.]exe|iop_private[.]exe|IOPLauncher_Server' } | Select-Object -First 10 TimeCreated,Id,ProviderName,Message | ConvertTo-Json -Depth 3"
     }
     if pid:
