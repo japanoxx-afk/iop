@@ -18,7 +18,7 @@ class TimerTests(unittest.TestCase):
     def test_clock_waits_for_battle_loop_and_resets_for_next_match(self):
         clock = MatchClock()
         self.assertEqual(clock.update(None, 10), (None, False))
-        self.assertEqual(clock.update(0, 20), (None, False))  # map/unit loading
+        self.assertEqual(clock.update(3, 20), (None, False))  # client/setup loop
         self.assertEqual(clock.update(MATCH_RUNNING, 30), (0.0, True))
         self.assertEqual(clock.update(MATCH_RUNNING, 35), (5, False))
         self.assertEqual(clock.update(9, 40), (None, False))  # result screen

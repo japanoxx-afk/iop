@@ -8,11 +8,11 @@ import tkinter as tk
 from ctypes import wintypes
 
 # The original 32-bit client has no ASLR.  Its root object stores the current
-# battle object at 0x4e53c8.  After map/unit initialization, the engine writes
-# 3 to +0x41cd and keeps it there for the active battle frame loop.
+# battle object at 0x4e53c8.  Runtime verification shows state 3 while the
+# client/setup loop is active and state 4 after the skirmish enters battle.
 MATCH_OBJECT_POINTER = 0x004E53C8
 MATCH_STATE_OFFSET = 0x41CD
-MATCH_RUNNING = 3
+MATCH_RUNNING = 4
 
 
 def format_elapsed(seconds: float) -> str:

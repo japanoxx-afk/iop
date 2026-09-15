@@ -1,7 +1,7 @@
 {
-  "version": "0.021",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.021/IOPLauncher_Server.exe",
-  "sha256": "44e666616de7f82a799cc04269f58d295808b013ea9bfc0c3e55abfc55738f73",
-  "size": 14402360,
-  "notes": "스커미시 맵·유닛 초기화 완료 시점부터 인게임 타이머 시작"
+  "version": "0.022",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.022/IOPLauncher_Server.exe",
+  "sha256": "f2ac0e0297f2a2de6c71173fca7dc0dc5970c9c2de36dc0f3218f299644097c3",
+  "size": 14403335,
+  "notes": "스커미시 전투 시작 상태에서만 인게임 타이머 표시"
 }
