@@ -1,7 +1,7 @@
 {
-  "version": "0.019",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.019/IOPLauncher_Server.exe",
-  "sha256": "33272cb7324f25a10d833d1a8172ad7b33e30714722991fb4971451b5b216eda",
-  "size": 14396351,
-  "notes": "cnc-ddraw 자동 설치, GitHub 기준 iop.exe 복구, 검은 화면 진단 보강"
+  "version": "0.020",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.020/IOPLauncher_Server.exe",
+  "sha256": "04da69f8a2e5daf2e1e9970483f1a5105efac3c112e221f1f11f47597ba6ed46",
+  "size": 14401323,
+  "notes": "게임 창 우측 상단 인게임 경과 시간 표시"
 }

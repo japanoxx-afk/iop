@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk,messagebox
 
 from iop_network import SERVER_NAME,PORTS,ServerController,prepare_private_exe,resolve_server,hosts_mapping
+from iop_timer import GameTimerOverlay
 
 class ServerTab:
     def _build_server(self, p):
@@ -24,6 +25,7 @@ class ServerTab:
         self._closing=False
         self._launch_pending=False
         self._game_process=None
+        self._game_timer=None
         self.host_ip=tk.StringVar(value=self.cfg.get('host_ip','127.0.0.1'))
         self.connect_to=tk.StringVar(value=self.cfg.get('connect_to',SERVER_NAME))
         self.mapping_ip=tk.StringVar(value=self.cfg.get('mapping_ip',''))
@@ -251,6 +253,11 @@ class ServerTab:
                 self.set_display_mode(mode)
                 diagnostics.event("launch_ready",mode=mode,server=ip,matched_files=count)
                 self._game_process=diagnostics.launch(exe,game_dir,on_report=lambda path:self.server.events.put(('log','게임 종료 분석 ZIP 자동 저장: '+str(path))))
+                if self._game_timer:
+                    self._game_timer.stop()
+                self._game_timer=GameTimerOverlay(self,self._game_process)
+                self._game_timer.start()
+                diagnostics.event('game_timer_started',pid=self._game_process.pid)
                 if ip:
                     self.mapping_ip.set(ip); self.connect_to.set(SERVER_NAME); self._save_network()
                 self._log_server(f'게임 시작: iop.exe · {mode} · '+(f'A·B {count}개 파일 일치 / {ip}' if ip else '로컬 실행'))
@@ -310,5 +317,7 @@ class ServerTab:
             messagebox.showinfo('게임 준비 중','관리자 확인 또는 게임 준비 작업이 끝난 뒤 런처를 닫으세요.')
             return
         self._save_network()
+        if self._game_timer:
+            self._game_timer.stop()
         self._closing=True
         self.server.stop()
