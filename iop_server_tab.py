@@ -255,9 +255,12 @@ class ServerTab:
                 self._game_process=diagnostics.launch(exe,game_dir,on_report=lambda path:self.server.events.put(('log','게임 종료 분석 ZIP 자동 저장: '+str(path))))
                 if self._game_timer:
                     self._game_timer.stop()
-                self._game_timer=GameTimerOverlay(self,self._game_process)
+                self._game_timer=GameTimerOverlay(
+                    self,self._game_process,
+                    on_match_start=lambda:diagnostics.event('skirmish_timer_started',pid=self._game_process.pid),
+                )
                 self._game_timer.start()
-                diagnostics.event('game_timer_started',pid=self._game_process.pid)
+                diagnostics.event('game_timer_armed',pid=self._game_process.pid)
                 if ip:
                     self.mapping_ip.set(ip); self.connect_to.set(SERVER_NAME); self._save_network()
                 self._log_server(f'게임 시작: iop.exe · {mode} · '+(f'A·B {count}개 파일 일치 / {ip}' if ip else '로컬 실행'))

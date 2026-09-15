@@ -1,7 +1,7 @@
 {
-  "version": "0.020",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.020/IOPLauncher_Server.exe",
-  "sha256": "04da69f8a2e5daf2e1e9970483f1a5105efac3c112e221f1f11f47597ba6ed46",
-  "size": 14401323,
-  "notes": "게임 창 우측 상단 인게임 경과 시간 표시"
+  "version": "0.021",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.021/IOPLauncher_Server.exe",
+  "sha256": "44e666616de7f82a799cc04269f58d295808b013ea9bfc0c3e55abfc55738f73",
+  "size": 14402360,
+  "notes": "스커미시 맵·유닛 초기화 완료 시점부터 인게임 타이머 시작"
 }

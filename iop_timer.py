@@ -7,6 +7,13 @@ import time
 import tkinter as tk
 from ctypes import wintypes
 
+# The original 32-bit client has no ASLR.  Its root object stores the current
+# battle object at 0x4e53c8.  After map/unit initialization, the engine writes
+# 3 to +0x41cd and keeps it there for the active battle frame loop.
+MATCH_OBJECT_POINTER = 0x004E53C8
+MATCH_STATE_OFFSET = 0x41CD
+MATCH_RUNNING = 3
+
 
 def format_elapsed(seconds: float) -> str:
     total = max(0, int(seconds))
@@ -22,6 +29,23 @@ def overlay_position(client_rect: tuple[int, int, int, int], width: int, margin:
     return max(left + margin, right - width - margin), top + margin
 
 
+class MatchClock:
+    """Turn the engine's match state into a resettable elapsed clock."""
+
+    def __init__(self) -> None:
+        self.started_at: float | None = None
+
+    def update(self, state: int | None, now: float) -> tuple[float | None, bool]:
+        started = False
+        if state == MATCH_RUNNING:
+            if self.started_at is None:
+                self.started_at = now
+                started = True
+            return max(0.0, now - self.started_at), started
+        self.started_at = None
+        return None, False
+
+
 class _Windows:
     GW_OWNER = 4
     GWL_EXSTYLE = -20
@@ -29,12 +53,43 @@ class _Windows:
     WS_EX_TOOLWINDOW = 0x00000080
     WS_EX_LAYERED = 0x00080000
     WS_EX_NOACTIVATE = 0x08000000
+    PROCESS_VM_READ = 0x0010
+    PROCESS_QUERY_INFORMATION = 0x0400
 
     def __init__(self) -> None:
         self.user32 = ctypes.windll.user32
         self.user32.GetWindow.restype = wintypes.HWND
         self.user32.GetParent.restype = wintypes.HWND
         self.user32.GetForegroundWindow.restype = wintypes.HWND
+        self.kernel32 = ctypes.windll.kernel32
+        self.kernel32.OpenProcess.restype = wintypes.HANDLE
+
+    def open_process(self, pid: int):
+        return self.kernel32.OpenProcess(
+            self.PROCESS_VM_READ | self.PROCESS_QUERY_INFORMATION, False, pid
+        )
+
+    def close_process(self, handle) -> None:
+        if handle:
+            self.kernel32.CloseHandle(handle)
+
+    def match_state(self, handle) -> int | None:
+        if not handle:
+            return None
+        pointer = ctypes.c_uint32()
+        read = ctypes.c_size_t()
+        if not self.kernel32.ReadProcessMemory(
+            handle, ctypes.c_void_p(MATCH_OBJECT_POINTER), ctypes.byref(pointer),
+            ctypes.sizeof(pointer), ctypes.byref(read),
+        ) or read.value != ctypes.sizeof(pointer) or not pointer.value:
+            return None
+        state = ctypes.c_uint32()
+        if not self.kernel32.ReadProcessMemory(
+            handle, ctypes.c_void_p(pointer.value + MATCH_STATE_OFFSET), ctypes.byref(state),
+            ctypes.sizeof(state), ctypes.byref(read),
+        ) or read.value != ctypes.sizeof(state):
+            return None
+        return state.value
 
     def game_window(self, pid: int) -> int | None:
         candidates: list[int] = []
@@ -76,15 +131,18 @@ class _Windows:
 class GameTimerOverlay:
     """Show elapsed process time at the top-right of the game's client area."""
 
-    def __init__(self, root: tk.Misc, process, *, clock=time.monotonic) -> None:
+    def __init__(self, root: tk.Misc, process, *, clock=time.monotonic,
+                 on_match_start=None) -> None:
         self.root = root
         self.process = process
         self.clock = clock
-        self.started_at = clock()
+        self.match_clock = MatchClock()
+        self.on_match_start = on_match_start
         self.window: tk.Toplevel | None = None
         self.label: tk.Label | None = None
         self.after_id = None
         self.api = _Windows() if sys.platform == "win32" else None
+        self.process_handle = self.api.open_process(process.pid) if self.api else None
         self._stopped = False
 
     def start(self) -> None:
@@ -122,6 +180,9 @@ class GameTimerOverlay:
             except tk.TclError:
                 pass
             self.window = None
+        if self.api is not None and self.process_handle:
+            self.api.close_process(self.process_handle)
+            self.process_handle = None
 
     def _tick(self) -> None:
         if self._stopped:
@@ -130,12 +191,17 @@ class GameTimerOverlay:
             if self.process.poll() is not None:
                 self.stop()
                 return
+            state = self.api.match_state(self.process_handle)
+            elapsed, match_started = self.match_clock.update(state, self.clock())
+            if match_started:
+                if self.on_match_start:
+                    self.on_match_start()
             hwnd = self.api.game_window(self.process.pid)
             rect = self.api.client_rect(hwnd) if hwnd else None
-            if not hwnd or not rect or not self.api.should_show(hwnd):
+            if elapsed is None or not hwnd or not rect or not self.api.should_show(hwnd):
                 self.window.withdraw()
             else:
-                self.label.config(text=format_elapsed(self.clock() - self.started_at))
+                self.label.config(text=format_elapsed(elapsed))
                 self.window.update_idletasks()
                 width = self.window.winfo_reqwidth()
                 height = self.window.winfo_reqheight()
