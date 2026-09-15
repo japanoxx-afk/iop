@@ -59,9 +59,12 @@ class SyncTests(unittest.TestCase):
     def test_display_preserves_compatibility_and_other_sections(self):
         ini=self.root/'ddraw.ini'; ini.write_bytes(b'[ddraw]\r\nrenderer=auto\r\n[iop]\r\nrenderer=direct3d9\r\n[other]\r\nwindowed=false\r\n')
         display_mode(ini,'window'); text=ini.read_text()
-        self.assertIn('renderer=direct3d9\nwindowed=true\nfullscreen=false',text)
+        self.assertIn('renderer=direct3d9\nwidth=1024\nheight=768\nmaintas=true\naspect_ratio=4:3\nwindowed=true\nfullscreen=false',text)
         self.assertIn('[other]\nwindowed=false',text)
-        display_mode(ini,'full'); self.assertIn('windowed=false\nfullscreen=true',ini.read_text())
+        display_mode(ini,'full','16:9','1920x1080'); text=ini.read_text()
+        self.assertIn('width=1920\nheight=1080\nmaintas=true\naspect_ratio=16:9\nwindowed=false\nfullscreen=true',text)
+        with self.assertRaisesRegex(ValueError,'16:9'):
+            display_mode(ini,'window','16:9','1024x768')
 
 class LaunchTests(unittest.TestCase):
     def test_hosts_cancel_prevents_patch_and_spawn(self):

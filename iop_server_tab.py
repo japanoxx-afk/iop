@@ -205,9 +205,11 @@ class ServerTab:
         if self._game_process and self._game_process.poll() is None:
             messagebox.showinfo('게임 실행 중','실행 중인 게임을 종료한 뒤 다시 시작하세요.'); return
         game_dir=self.game_dir; mode=self.mode_var.get()
+        aspect=getattr(self,'aspect_var',None).get() if getattr(self,'aspect_var',None) else self.cfg.get('display_aspect','4:3')
+        resolution=getattr(self,'resolution_var',None).get() if getattr(self,'resolution_var',None) else self.cfg.get('display_resolution','1024x768')
         address=self.mapping_ip.get().strip() or self.connect_to.get().strip()
         network=bool(self.mapping_ip.get().strip() or address not in ('',SERVER_NAME) or hosts_mapping())
-        self.cfg['mode']=mode
+        self.cfg.update(mode=mode,display_aspect=aspect,display_resolution=resolution)
         self._save_network()
         hotkeys=dict(self.cfg.get("production_hotkeys",{}))
         if getattr(self,"_hotkeys_dirty",False):
@@ -250,7 +252,7 @@ class ServerTab:
             if self.game_dir!=game_dir:
                 self._log_server('게임 폴더가 변경되어 실행을 취소했습니다. 다시 실행하세요.'); return
             try:
-                self.set_display_mode(mode)
+                self.set_display_mode(mode,aspect,resolution)
                 diagnostics.event("launch_ready",mode=mode,server=ip,matched_files=count)
                 self._game_process=diagnostics.launch(exe,game_dir,on_report=lambda path:self.server.events.put(('log','게임 종료 분석 ZIP 자동 저장: '+str(path))))
                 if self._game_timer:

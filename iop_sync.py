@@ -93,14 +93,28 @@ def fetch_manifest(ip, port=SYNC_PORT):
         if size>LIMIT: raise ValueError('동기화 응답 크기 오류')
         return json.loads(exact(size))
 
-def display_mode(path, mode):
+DISPLAY_KEYS = ('windowed','fullscreen','width','height','maintas','aspect_ratio')
+
+
+def display_mode(path, mode, aspect='4:3', resolution='1024x768'):
     path=Path(path)
     if not path.exists(): return
+    if aspect not in ('4:3','16:9'):
+        raise ValueError('지원하지 않는 화면 비율입니다.')
+    try:
+        width,height=(int(value) for value in resolution.lower().split('x',1))
+    except (AttributeError,ValueError):
+        raise ValueError('해상도는 1280x720 형식으로 선택하세요.')
+    expected=4/3 if aspect=='4:3' else 16/9
+    if width<640 or height<480 or abs(width/height-expected)>.01:
+        raise ValueError(f'{resolution}은 {aspect} 해상도가 아닙니다.')
     lines=path.read_bytes().decode('latin-1').splitlines()
     start=next((i for i,line in enumerate(lines) if line.strip().lower()=='[iop]'),None)
     if start is None:
         lines+=['','[iop]']; start=len(lines)-1
     end=next((i for i in range(start+1,len(lines)) if lines[i].strip().startswith('[')),len(lines))
-    body=[line for line in lines[start+1:end] if line.split('=',1)[0].strip().lower() not in ('windowed','fullscreen')]
-    body+=['windowed='+('false' if mode=='full' else 'true'),'fullscreen='+('true' if mode=='full' else 'false')]
+    body=[line for line in lines[start+1:end] if line.split('=',1)[0].strip().lower() not in DISPLAY_KEYS]
+    body+=[f'width={width}',f'height={height}','maintas=true',f'aspect_ratio={aspect}',
+           'windowed='+('false' if mode=='full' else 'true'),
+           'fullscreen='+('true' if mode=='full' else 'false')]
     path.write_bytes(('\r\n'.join(lines[:start+1]+body+lines[end:])+'\r\n').encode('latin-1'))

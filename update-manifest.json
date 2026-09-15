@@ -1,7 +1,7 @@
 {
-  "version": "0.022",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.022/IOPLauncher_Server.exe",
-  "sha256": "f2ac0e0297f2a2de6c71173fca7dc0dc5970c9c2de36dc0f3218f299644097c3",
-  "size": 14403335,
-  "notes": "스커미시 전투 시작 상태에서만 인게임 타이머 표시"
+  "version": "0.023",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.023/IOPLauncher_Server.exe",
+  "sha256": "a955d1a72132668785d7799a6dcbc4e2d736e565c8367b9e9db96c4f9c968c42",
+  "size": 14404782,
+  "notes": "런처에 4:3·16:9 화면 비율과 출력 해상도 선택 기능 추가"
 }

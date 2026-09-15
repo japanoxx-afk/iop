@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.022"
+VERSION = "0.023"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -120,7 +120,7 @@ sys.path.insert(0, EXE_DIR)
 import iop_balance as iob          # 밸런스 읽기/쓰기 로직 재사용
 
 RES_FILES = ("Gubattle.res", "Gweapon.res")
-DEFAULTS = {"mode": "window", "game_dir": ""}
+DEFAULTS = {"mode": "window", "game_dir": "", "display_aspect": "4:3", "display_resolution": "1024x768"}
 
 def load_cfg():
     return {**DEFAULTS, **iop_config.load(CONFIG,EXE_DIR)}
@@ -304,6 +304,22 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
                        font=("맑은 고딕", 11)).pack(side="left", padx=20)
         tk.Label(box, text="(게임 중 Alt+Enter 로도 전환)", fg="#888").pack(side="left", padx=16)
 
+        video = tk.LabelFrame(p, text=" 화면 비율·해상도 ", font=("맑은 고딕", 11), padx=16, pady=12)
+        video.pack(fill="x", padx=30, pady=(0, 12))
+        aspect=self.cfg.get("display_aspect","4:3")
+        if aspect not in ("4:3","16:9"): aspect="4:3"
+        self.aspect_var=tk.StringVar(value=aspect)
+        resolution=self.cfg.get("display_resolution","1024x768")
+        self.resolution_var=tk.StringVar(value=resolution)
+        tk.Radiobutton(video,text="원본 4:3",variable=self.aspect_var,value="4:3",
+                       command=self._aspect_changed,font=("맑은 고딕",10)).pack(side="left",padx=(4,12))
+        tk.Radiobutton(video,text="와이드 16:9",variable=self.aspect_var,value="16:9",
+                       command=self._aspect_changed,font=("맑은 고딕",10)).pack(side="left",padx=12)
+        tk.Label(video,text="출력 해상도").pack(side="left",padx=(30,8))
+        self.resolution_combo=ttk.Combobox(video,textvariable=self.resolution_var,state="readonly",width=13)
+        self.resolution_combo.pack(side="left")
+        self._aspect_changed(keep_current=True)
+
         tk.Button(p, text="▶  게임 시작", font=("맑은 고딕", 18, "bold"),
                   bg="#3b6ea5", fg="white", height=2, command=self.launch_game
                   ).pack(fill="x", padx=30, pady=10)
@@ -318,9 +334,15 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
                        "• 다른 PC로 옮길 때는 게임 폴더를 통째로 복사하고, 그 폴더를 지정하세요.")
                  ).pack(anchor="w", padx=32, pady=18)
 
-    def set_display_mode(self, mode):
+    def _aspect_changed(self, keep_current=False):
+        choices=("1024x768","1280x960","1600x1200") if self.aspect_var.get()=="4:3" else ("1280x720","1600x900","1920x1080","2560x1440")
+        self.resolution_combo['values']=choices
+        if not keep_current or self.resolution_var.get() not in choices:
+            self.resolution_var.set(choices[0])
+
+    def set_display_mode(self, mode, aspect=None, resolution=None):
         from iop_sync import display_mode
-        display_mode(self.gp("ddraw.ini"), mode)
+        display_mode(self.gp("ddraw.ini"),mode,aspect or self.aspect_var.get(),resolution or self.resolution_var.get())
 
     def launch_game(self):
         self.launch_private_game()
