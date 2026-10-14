@@ -1,7 +1,7 @@
 {
-  "version": "0.023",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.023/IOPLauncher_Server.exe",
-  "sha256": "a955d1a72132668785d7799a6dcbc4e2d736e565c8367b9e9db96c4f9c968c42",
-  "size": 14404782,
-  "notes": "런처에 4:3·16:9 화면 비율과 출력 해상도 선택 기능 추가"
+  "version": "0.024",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.024/IOPLauncher_Server.exe",
+  "sha256": "10c1f43c6911c6383dc732c4e0c3191bc1db05baf2652f66b67a68e19f9019b8",
+  "size": 14432102,
+  "notes": "관전 모드에 전투 참가자 아이디·아다마스·플래티넘 현황판 추가"
 }

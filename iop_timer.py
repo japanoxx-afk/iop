@@ -13,6 +13,13 @@ from ctypes import wintypes
 MATCH_OBJECT_POINTER = 0x004E53C8
 MATCH_STATE_OFFSET = 0x41CD
 MATCH_RUNNING = 4
+TEAM_MANAGER_POINTER = 0x00508300
+SLOT_TYPE_BASE = 0x006C92D5
+SLOT_NAME_BASE = 0x006C9345
+SLOT_NAME_SIZE = 21
+LOCAL_SLOT = 0x006C940D
+PLAYER_TYPES = (1, 4)  # computer, human
+PLAYABLE_RACES = (1, 2, 3)
 
 
 def format_elapsed(seconds: float) -> str:
@@ -27,6 +34,24 @@ def format_elapsed(seconds: float) -> str:
 def overlay_position(client_rect: tuple[int, int, int, int], width: int, margin: int = 14) -> tuple[int, int]:
     left, top, right, _bottom = client_rect
     return max(left + margin, right - width - margin), top + margin
+
+
+def active_player_rows(slots: list[dict]) -> list[tuple[str, int, int]]:
+    """Return resource rows while excluding empty and observer slots."""
+    return [
+        (slot['name'], slot['adamas'], slot['platinum'])
+        for slot in slots
+        if slot.get('type') in PLAYER_TYPES
+        and slot.get('race') in PLAYABLE_RACES
+        and slot.get('name')
+    ]
+
+
+def format_resource_board(rows: list[tuple[str, int, int]]) -> str:
+    lines=['관전 현황  |  아다마스 / 플래티넘']
+    for name,adamas,platinum in rows:
+        lines.append(f'{name[:16]}  |  {adamas:,} / {platinum:,}')
+    return '\n'.join(lines)
 
 
 class MatchClock:
@@ -91,6 +116,55 @@ class _Windows:
             return None
         return state.value
 
+    def _read(self, handle, address: int, size: int) -> bytes | None:
+        value = ctypes.create_string_buffer(size)
+        read = ctypes.c_size_t()
+        if not self.kernel32.ReadProcessMemory(
+            handle, ctypes.c_void_p(address), value, size, ctypes.byref(read)
+        ) or read.value != size:
+            return None
+        return value.raw
+
+    def _u32(self, handle, address: int) -> int | None:
+        data=self._read(handle,address,4)
+        return int.from_bytes(data,'little') if data is not None else None
+
+    def spectator_rows(self, handle) -> list[tuple[str, int, int]] | None:
+        """Read scoreboard rows only when this client occupies an observer slot."""
+        manager=self._u32(handle,TEAM_MANAGER_POINTER)
+        local_data=self._read(handle,LOCAL_SLOT,1)
+        if not manager or local_data is None:
+            return None
+        local_slot=local_data[0]
+        count=self._u32(handle,manager+5)
+        if local_slot>=8 or count is None or count<1 or count>8:
+            return None
+        local_type_data=self._read(handle,SLOT_TYPE_BASE+local_slot,1)
+        local_team=self._u32(handle,manager+9+local_slot*4)
+        local_race_data=self._read(handle,local_team+2,1) if local_team else None
+        local_type=local_type_data[0] if local_type_data else 0
+        local_race=local_race_data[0] if local_race_data else 0
+        if local_type!=4 or local_race in PLAYABLE_RACES:
+            return None
+        slots=[]
+        for index in range(count):
+            type_data=self._read(handle,SLOT_TYPE_BASE+index,1)
+            team=self._u32(handle,manager+9+index*4)
+            if type_data is None or not team:
+                continue
+            race_data=self._read(handle,team+2,1)
+            resources=self._read(handle,team+0x1A,8)
+            name_data=self._read(handle,SLOT_NAME_BASE+index*SLOT_NAME_SIZE,SLOT_NAME_SIZE)
+            if race_data is None or resources is None or name_data is None:
+                continue
+            raw_name=name_data.split(b'\0',1)[0]
+            try:name=raw_name.decode('cp949').strip()
+            except UnicodeDecodeError:name=raw_name.decode('latin-1','replace').strip()
+            slots.append(dict(type=type_data[0],race=race_data[0],name=name,
+                              adamas=int.from_bytes(resources[:4],'little'),
+                              platinum=int.from_bytes(resources[4:],'little')))
+        return active_player_rows(slots)
+
     def game_window(self, pid: int) -> int | None:
         candidates: list[int] = []
         callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -140,6 +214,7 @@ class GameTimerOverlay:
         self.on_match_start = on_match_start
         self.window: tk.Toplevel | None = None
         self.label: tk.Label | None = None
+        self.board: tk.Label | None = None
         self.after_id = None
         self.api = _Windows() if sys.platform == "win32" else None
         self.process_handle = self.api.open_process(process.pid) if self.api else None
@@ -162,6 +237,11 @@ class GameTimerOverlay:
             font=("Consolas", 16, "bold"), padx=11, pady=5,
         )
         self.label.pack()
+        self.board = tk.Label(
+            self.window, text='', bg="#101820", fg="#d8f3ff",
+            font=("맑은 고딕", 10, "bold"), justify='left', anchor='w',
+            padx=11, pady=7,
+        )
         self.window.update_idletasks()
         self.api.make_click_through(int(self.window.winfo_id()))
         self._tick()
@@ -198,6 +278,12 @@ class GameTimerOverlay:
                     self.on_match_start()
             hwnd = self.api.game_window(self.process.pid)
             rect = self.api.client_rect(hwnd) if hwnd else None
+            rows=self.api.spectator_rows(self.process_handle) if elapsed is not None else None
+            if rows is None:
+                if self.board.winfo_manager(): self.board.pack_forget()
+            else:
+                self.board.config(text=format_resource_board(rows))
+                if not self.board.winfo_manager(): self.board.pack(fill='x')
             if elapsed is None or not hwnd or not rect or not self.api.should_show(hwnd):
                 self.window.withdraw()
             else:
