@@ -93,7 +93,8 @@ def fetch_manifest(ip, port=SYNC_PORT):
         if size>LIMIT: raise ValueError('동기화 응답 크기 오류')
         return json.loads(exact(size))
 
-DISPLAY_KEYS = ('windowed','fullscreen','width','height','maintas','aspect_ratio')
+DISPLAY_KEYS = ('windowed','fullscreen','width','height','maintas','aspect_ratio',
+                'nonexclusive','toggle_borderless')
 
 
 def display_mode(path, mode, aspect='4:3', resolution='1024x768'):
@@ -101,6 +102,8 @@ def display_mode(path, mode, aspect='4:3', resolution='1024x768'):
     if not path.exists(): return
     if aspect not in ('4:3','16:9'):
         raise ValueError('지원하지 않는 화면 비율입니다.')
+    if mode not in ('window','full'):
+        raise ValueError('지원하지 않는 화면 모드입니다.')
     try:
         width,height=(int(value) for value in resolution.lower().split('x',1))
     except (AttributeError,ValueError):
@@ -109,12 +112,22 @@ def display_mode(path, mode, aspect='4:3', resolution='1024x768'):
     if width<640 or height<480 or abs(width/height-expected)>.01:
         raise ValueError(f'{resolution}은 {aspect} 해상도가 아닙니다.')
     lines=path.read_bytes().decode('latin-1').splitlines()
-    start=next((i for i,line in enumerate(lines) if line.strip().lower()=='[iop]'),None)
-    if start is None:
-        lines+=['','[iop]']; start=len(lines)-1
-    end=next((i for i in range(start+1,len(lines)) if lines[i].strip().startswith('[')),len(lines))
-    body=[line for line in lines[start+1:end] if line.split('=',1)[0].strip().lower() not in DISPLAY_KEYS]
-    body+=[f'width={width}',f'height={height}','maintas=true',f'aspect_ratio={aspect}',
-           'windowed='+('false' if mode=='full' else 'true'),
-           'fullscreen='+('true' if mode=='full' else 'false')]
-    path.write_bytes(('\r\n'.join(lines[:start+1]+body+lines[end:])+'\r\n').encode('latin-1'))
+    # cnc-ddraw may use either its global section or an executable-specific
+    # section.  Update both so renamed/network clients and old ini files cannot
+    # fall back to the game's unsupported exclusive DirectDraw mode.
+    settings=[f'width={width}',f'height={height}','maintas=true',f'aspect_ratio={aspect}',
+              'windowed=true',
+              'fullscreen='+('true' if mode=='full' else 'false'),
+              'nonexclusive=true',
+              'toggle_borderless=true']
+    for section in ('ddraw','iop','iop_private'):
+        marker=f'[{section}]'
+        start=next((i for i,line in enumerate(lines) if line.strip().lower()==marker),None)
+        if start is None:
+            if lines and lines[-1].strip(): lines.append('')
+            lines.append(marker); start=len(lines)-1
+        end=next((i for i in range(start+1,len(lines)) if lines[i].strip().startswith('[')),len(lines))
+        body=[line for line in lines[start+1:end]
+              if line.split('=',1)[0].strip().lower() not in DISPLAY_KEYS]
+        lines=lines[:start+1]+body+settings+lines[end:]
+    path.write_bytes(('\r\n'.join(lines)+'\r\n').encode('latin-1'))

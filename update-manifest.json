@@ -1,7 +1,7 @@
 {
-  "version": "0.024",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.024/IOPLauncher_Server.exe",
-  "sha256": "10c1f43c6911c6383dc732c4e0c3191bc1db05baf2652f66b67a68e19f9019b8",
-  "size": 14432102,
-  "notes": "관전 모드에 전투 참가자 아이디·아다마스·플래티넘 현황판 추가"
+  "version": "0.025",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.025/IOPLauncher_Server.exe",
+  "sha256": "049e71b5d60c0a4f09d3757d6fd131b37ab921fc5e2fc817b7ef8e7ac7e77a67",
+  "size": 14405782,
+  "notes": "SetDisplayMode Error7 방지를 위한 안전한 테두리 없는 전체 화면 및 cnc-ddraw 설정 보강"
 }

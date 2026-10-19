@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.024"
+VERSION = "0.025"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -300,9 +300,9 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         self.mode_var = tk.StringVar(value="window")
         tk.Radiobutton(box, text="창 모드", variable=self.mode_var, value="window",
                        font=("맑은 고딕", 11)).pack(side="left", padx=20)
-        tk.Radiobutton(box, text="전체 화면", variable=self.mode_var, value="full",
+        tk.Radiobutton(box, text="전체 화면 (안전 모드)", variable=self.mode_var, value="full",
                        font=("맑은 고딕", 11)).pack(side="left", padx=20)
-        tk.Label(box, text="(게임 중 Alt+Enter 로도 전환)", fg="#888").pack(side="left", padx=16)
+        tk.Label(box, text="(테두리 없는 전체 화면 · 디스플레이 전환 오류 방지)", fg="#888").pack(side="left", padx=16)
 
         video = tk.LabelFrame(p, text=" 화면 비율·해상도 ", font=("맑은 고딕", 11), padx=16, pady=12)
         video.pack(fill="x", padx=30, pady=(0, 12))
