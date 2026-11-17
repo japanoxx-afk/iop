@@ -8,6 +8,7 @@ import hashlib
 import shutil
 
 MAX_BYTES = 32 * 1024 * 1024
+HIGH_GROUND_FLAG = 0x20
 
 
 class MapDocument:
@@ -147,6 +148,31 @@ class MapDocument:
         flags = int.from_bytes(self.tiles[tile][:2], 'little')
         return bool(flags & 0xf003) and not bool(flags & 0x81c)
 
+    def is_high(self, x, y):
+        flags = int.from_bytes(self.tiles[self.tile_id(x, y)][:2], 'little')
+        return bool(flags & HIGH_GROUND_FLAG)
+
+    def set_high(self, x, y, enabled=True):
+        """Set per-cell height by reusing or cloning the cell's graphic tile."""
+        self.validate_positions([(x, y)])
+        current = self.tile_id(x, y)
+        raw = bytearray(self.tiles[current])
+        flags = int.from_bytes(raw[:2], 'little')
+        wanted = (flags | HIGH_GROUND_FLAG) if enabled else (flags & ~HIGH_GROUND_FLAG)
+        if wanted == flags:
+            return False
+        raw[:2] = wanted.to_bytes(2, 'little')
+        target = bytes(raw)
+        try:
+            ident = self.tiles.index(target)
+        except ValueError:
+            if len(self.tiles) >= 30000:
+                raise ValueError('고지대 표시용 타일을 더 만들 수 없습니다.')
+            self.tiles.append(target)
+            ident = len(self.tiles) - 1
+        self.grid[x*self.height+y] = ident
+        return True
+
     def ground_tile(self):
         from collections import Counter
         for tile,_ in Counter(self.grid).most_common():
@@ -179,10 +205,11 @@ class MapDocument:
                               if not occupied(*struct.unpack_from('<HH',self.objects,i)))
 
     def snapshot(self):
-        return (self.grid[:], self.minimap[:], self.starts[:], self.resources[:], self.objects)
+        return (self.grid[:], self.minimap[:], self.starts[:], self.resources[:], self.objects,
+                self.tiles[:])
 
     def restore(self, state):
-        self.grid,self.minimap,self.starts,self.resources,self.objects=copy.deepcopy(state)
+        self.grid,self.minimap,self.starts,self.resources,self.objects,self.tiles=copy.deepcopy(state)
 
     def preview(self, palette, scale=4, region=None):
         """Render actual 32x32 tile pixels, not the embedded minimap."""

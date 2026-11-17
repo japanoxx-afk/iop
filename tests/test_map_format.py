@@ -88,3 +88,21 @@ class NativeMaps(unittest.TestCase):
         d=MapDocument.decode(fixture())
         self.assertTrue(d.is_ground(0));self.assertFalse(d.is_ground(1))
         self.assertEqual(d.ground_tile(),0)
+
+    def test_high_ground_is_per_cell_roundtrips_and_undoes(self):
+        d=MapDocument.decode(fixture());before=d.snapshot()
+        self.assertFalse(d.is_high(0,0))
+        self.assertTrue(d.set_high(0,0));self.assertTrue(d.is_high(0,0))
+        self.assertFalse(d.is_high(0,1))
+        count=len(d.tiles)
+        self.assertFalse(d.set_high(0,0));self.assertEqual(len(d.tiles),count)
+        loaded=MapDocument.decode(d.encode())
+        self.assertTrue(loaded.is_high(0,0));self.assertTrue(loaded.is_ground(loaded.tile_id(0,0)))
+        d.restore(before);self.assertEqual(d.encode(),fixture())
+
+    def test_high_ground_variant_is_reused(self):
+        d=MapDocument.decode(fixture())
+        d.set_high(0,0);count=len(d.tiles)
+        d.set_high(1,1)
+        self.assertEqual(len(d.tiles),count)
+        self.assertEqual(d.tile_id(0,0),d.tile_id(1,1))

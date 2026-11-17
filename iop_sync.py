@@ -51,7 +51,8 @@ def manifest(game_dir):
         if name in ('data/button.res','data/kbutton.res'): data=normalize_labels(data)
         result[name]=hashlib.sha256(data).hexdigest()
     from iop_stability import normalize
-    result['iop.exe']=hashlib.sha256(normalize(normalize_exe(patched_bytes((root/'iop.exe').read_bytes(),'127.0.0.1')))).hexdigest()
+    from iop_hill_vision import normalize as normalize_hill_vision
+    result['iop.exe']=hashlib.sha256(normalize_hill_vision(normalize(normalize_exe(patched_bytes((root/'iop.exe').read_bytes(),'127.0.0.1'))))).hexdigest()
     return {'protocol':1,'files':result}
 
 def compare(local, remote):

@@ -230,6 +230,8 @@ class ServerTab:
             fix_flame(game_dir)
             from iop_stability import apply as apply_render_fix
             diagnostics.event('render_safety_patch',changed=apply_render_fix(game_dir))
+            from iop_hill_vision import apply as apply_hill_vision
+            diagnostics.event('hill_vision_patch',changed=apply_hill_vision(game_dir))
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
             try:
                 ip=resolve_server(address)

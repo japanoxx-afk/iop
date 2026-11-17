@@ -1,7 +1,7 @@
 {
-  "version": "0.025",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.025/IOPLauncher_Server.exe",
-  "sha256": "049e71b5d60c0a4f09d3757d6fd131b37ab921fc5e2fc817b7ef8e7ac7e77a67",
-  "size": 14405782,
-  "notes": "SetDisplayMode Error7 방지를 위한 안전한 테두리 없는 전체 화면 및 cnc-ddraw 설정 보강"
+  "version": "0.026",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.026/IOPLauncher_Server.exe",
+  "sha256": "8174cf978fe64fc5c942a17f08a7ab2de226dba4ff22223d46c548fc80906a6e",
+  "size": 14437294,
+  "notes": "고지대 시야 레이어와 지상/공중 유닛별 전장의 안개 판정 추가"
 }

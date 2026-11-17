@@ -61,8 +61,9 @@ def _download(item, opener=urllib.request.urlopen):
 def normalized_iop(data):
     from iop_hotkeys import normalize_exe
     from iop_stability import normalize
+    from iop_hill_vision import normalize as normalize_hill_vision
     from iop_network import ADDRESS_OFFSET, ORIGINAL_ADDRESS
-    base = normalize(normalize_exe(data))
+    base = normalize_hill_vision(normalize(normalize_exe(data)))
     return base[:ADDRESS_OFFSET] + ORIGINAL_ADDRESS + base[ADDRESS_OFFSET + 16:]
 
 

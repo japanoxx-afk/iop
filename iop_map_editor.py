@@ -20,13 +20,13 @@ class MapEditor(ttk.Frame):
             ttk.Button(bar,text=label,command=command).pack(side='left',padx=2)
         bar=ttk.Frame(self);bar.pack(fill='x',pady=3)
         self.mode=tk.StringVar(value='시작 위치')
-        tool=ttk.Combobox(bar,textvariable=self.mode,values=('시작 위치','타일 브러시','자원 추가','자원 삭제','언덕/영역 복사'),state='readonly',width=16)
+        tool=ttk.Combobox(bar,textvariable=self.mode,values=('시작 위치','타일 브러시','고지대 지정','고지대 해제','자원 추가','자원 삭제','언덕/영역 복사'),state='readonly',width=16)
         tool.pack(side='left',padx=5)
         self.slot=ttk.Combobox(bar,state='readonly',width=4);self.slot.pack(side='left')
         self.zoom=tk.IntVar(value=4)
         zoom=ttk.Combobox(bar,textvariable=self.zoom,values=(2,4,8,16,24,32,48,64),state='readonly',width=3)
         zoom.pack(side='left',padx=5);zoom.bind('<<ComboboxSelected>>',lambda e:self.redraw())
-        ttk.Label(self,text='우클릭: 평지로 지우기 · Ctrl+우클릭: 타일 채집 / 영역 첫 모서리 · Shift+우클릭: 영역 반대 모서리 · 좌클릭: 적용\n언덕은 절벽·경사로까지 포함해 영역 복사하세요. 청록 ◆ 자원 / 노랑 숫자 시작 위치',justify='left').pack(anchor='w',pady=4)
+        ttk.Label(self,text='우클릭: 평지로 지우기 · Ctrl+우클릭: 타일 채집 / 영역 첫 모서리 · Shift+우클릭: 영역 반대 모서리 · 좌클릭/드래그: 적용\n자주색 테두리: 시야가 분리되는 고지대 · 청록 ◆ 자원 · 노랑 숫자 시작 위치',justify='left').pack(anchor='w',pady=4)
         self.status=tk.StringVar(value='맵을 열어 타일을 선택하세요.')
         ttk.Label(self,textvariable=self.status).pack(anchor='w')
         body=ttk.Panedwindow(self,orient='horizontal');body.pack(fill='both',expand=True)
@@ -45,7 +45,9 @@ class MapEditor(ttk.Frame):
         self.page=0;self.gallery_images=[]
         ttk.Button(left,text='◆ 자원 타일 선택',command=lambda:self.choose_tool('자원 추가')).pack(fill='x',pady=3)
         ttk.Button(left,text='자원 지우개',command=lambda:self.choose_tool('자원 삭제')).pack(fill='x',pady=3)
-        ttk.Label(left,text='타일 선택 → 왼쪽 드래그\n자원 선택 → 지도 클릭').pack(anchor='w')
+        ttk.Button(left,text='▧ 고지대 칠하기',command=lambda:self.choose_tool('고지대 지정')).pack(fill='x',pady=3)
+        ttk.Button(left,text='고지대 표시 지우기',command=lambda:self.choose_tool('고지대 해제')).pack(fill='x',pady=3)
+        ttk.Label(left,text='타일/고지대 → 왼쪽 드래그\n자원 선택 → 지도 클릭').pack(anchor='w')
         self.tiles=tk.Listbox(left,exportselection=False,width=23)
         scroll=ttk.Scrollbar(left,command=self.tiles.yview);self.tiles.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right',fill='y');self.tiles.pack(fill='both',expand=True)
@@ -79,6 +81,13 @@ class MapEditor(ttk.Frame):
             self.slot['values']=[f'P{i+1}' for i in range(doc.players)];self.slot.current(0)
             self.tile=0;self.sort_tiles();self.select_tile();self.redraw()
             self.page=0;self.show_gallery()
+            known={'treesnowopen.map':'회색으로 둘러싼 시작 지형',
+                   'treegreen.map':'흰색으로 둘러싼 시작 지형',
+                   'treebrownhill.map':'둘러싼 시작 지형',
+                   'newladder05c.map':'4개 시작 지형',
+                   'newladder04.map':'4개 시작 지형','newladder04b.map':'4개 시작 지형'}
+            if path.lower().replace('\\','/').rsplit('/',1)[-1] in known:
+                self.status.set('이 맵의 고지대: '+known[path.lower().replace('\\','/').rsplit('/',1)[-1]]+' · 고지대 칠하기로 내부를 표시하세요.')
         except Exception as exc:messagebox.showerror('맵 열기 실패',str(exc))
 
     def select_tile(self,event=None):
@@ -116,7 +125,11 @@ class MapEditor(ttk.Frame):
 
     def choose_tool(self, mode):
         self.mode.set(mode)
-        self.status.set('◆ 자원 선택됨 · 지도에 왼쪽 클릭하면 배치됩니다.' if mode=='자원 추가' else '지울 자원을 클릭하세요.')
+        messages={'자원 추가':'◆ 자원 선택됨 · 지도에 왼쪽 클릭하면 배치됩니다.',
+                  '자원 삭제':'지울 자원을 클릭하세요.',
+                  '고지대 지정':'고지대 내부를 왼쪽 버튼으로 칠하세요. 자주색 테두리가 표시됩니다.',
+                  '고지대 해제':'잘못 표시한 고지대를 왼쪽 버튼으로 지우세요.'}
+        self.status.set(messages.get(mode,''))
 
     def tile_page(self,delta):
         if self.doc is None:return
@@ -141,14 +154,16 @@ class MapEditor(ttk.Frame):
         self._stroke=True; self._last_cell=self.coords(event)
 
     def stroke_move(self,event):
-        if not self._stroke or self.mode.get()!='타일 브러시' or self.doc is None:return
+        if not self._stroke or self.mode.get() not in ('타일 브러시','고지대 지정','고지대 해제') or self.doc is None:return
         end=self.coords(event);start=self._last_cell
         if start is None or end==start:return
         count=max(abs(end[0]-start[0]),abs(end[1]-start[1]))
         for step in range(1,count+1):
             x=round(start[0]+(end[0]-start[0])*step/count)
             y=round(start[1]+(end[1]-start[1])*step/count)
-            if 0<=x<self.doc.width and 0<=y<self.doc.height:self.doc.paint(x,y,self.tile)
+            if 0<=x<self.doc.width and 0<=y<self.doc.height:
+                if self.mode.get()=='타일 브러시':self.doc.paint(x,y,self.tile)
+                else:self.doc.set_high(x,y,self.mode.get()=='고지대 지정')
         self._last_cell=end; self.dirty=True;self.redraw()
 
     def stroke_end(self,event=None):
@@ -204,6 +219,8 @@ class MapEditor(ttk.Frame):
         try:
             if mode=='시작 위치':self.doc.starts[self.slot.current()]=(x,y)
             elif mode=='타일 브러시':self.doc.paint(x,y,self.tile)
+            elif mode=='고지대 지정':self.doc.set_high(x,y,True)
+            elif mode=='고지대 해제':self.doc.set_high(x,y,False)
             elif mode=='자원 추가':
                 if len(self.doc.resources)>=1000:raise ValueError('자원은 최대 1,000개입니다.')
                 if (x,y) not in self.doc.resources:self.doc.resources.append((x,y))
@@ -252,8 +269,15 @@ class MapEditor(ttk.Frame):
         y1=min(self.doc.height,y0+max(1,self.canvas.winfo_height())//scale+2)
         self.photo=tk.PhotoImage(data=self.doc.preview(self.palette,scale,(x0,y0,x1,y1)),format='PPM')
         self.canvas.delete('all');self.canvas.create_image(x0*scale,y0*scale,image=self.photo,anchor='nw')
+        outline='#ff3cff'
+        for x in range(x0,x1):
+            for y in range(y0,y1):
+                if self.doc.is_high(x,y):
+                    self.canvas.create_rectangle(x*scale,y*scale,(x+1)*scale,(y+1)*scale,
+                                                 outline=outline,width=2 if scale>=8 else 1)
         draw_resources(self.canvas,self.doc.resources,scale);draw_starts(self.canvas,self.doc.starts,scale)
-        self.status.set(f'{self.doc.path.name} | {self.doc.width}×{self.doc.height} | 자원 {len(self.doc.resources)}개'+(' · 저장하지 않은 변경' if self.dirty else ''))
+        high=sum(self.doc.is_high(x,y) for x in range(self.doc.width) for y in range(self.doc.height))
+        self.status.set(f'{self.doc.path.name} | {self.doc.width}×{self.doc.height} | 자원 {len(self.doc.resources)}개 | 고지대 {high}칸'+(' · 저장하지 않은 변경' if self.dirty else ''))
 
     def save(self, save_as=False):
         if self.doc is None:return
