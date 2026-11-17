@@ -1,7 +1,7 @@
 {
-  "version": "0.029",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.029/IOPLauncher_Server.exe",
-  "sha256": "b6da57893c515fd3da51c018e7436f660f32b7514f747f4624f3b3bbb7513647",
-  "size": 14438873,
-  "notes": "BBSIM ERROR #847234를 유발한 고지대 엔진 후크 비활성화 및 자동 제거"
+  "version": "0.024",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.024/IOPLauncher_Server.exe",
+  "sha256": "10c1f43c6911c6383dc732c4e0c3191bc1db05baf2652f66b67a68e19f9019b8",
+  "size": 14432102,
+  "notes": "안정성 요청에 따라 v0.024로 롤백"
 }
