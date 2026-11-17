@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+import tempfile
 
 import iop_hill_vision as hill
 import iop_hotkeys
@@ -39,3 +40,11 @@ class HillVisionPatch(unittest.TestCase):
         hotkeys = iop_hotkeys.patch_exe(patched, {})
         networked = network_bytes(hotkeys, '26.1.2.3')
         self.assertTrue(hill._state(networked)[1])
+
+    def test_remove_restores_only_hill_hook(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'iop.exe'
+            path.write_bytes(hill.patched_bytes(self.original))
+            self.assertTrue(hill.remove(folder))
+            self.assertEqual(path.read_bytes(),self.original)
+            self.assertFalse(hill.remove(folder))

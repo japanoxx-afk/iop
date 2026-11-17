@@ -223,6 +223,8 @@ class ServerTab:
             from iop_assets import ensure_game_files
             assets=ensure_game_files(game_dir)
             diagnostics.event('game_files_checked',**assets)
+            from iop_hill_vision import remove as remove_hill_vision
+            diagnostics.event('hill_vision_disabled',removed=remove_hill_vision(game_dir))
             changed=0
             if not is_applied(game_dir,hotkeys):
                 changed=apply(game_dir,hotkeys)
@@ -230,8 +232,6 @@ class ServerTab:
             fix_flame(game_dir)
             from iop_stability import apply as apply_render_fix
             diagnostics.event('render_safety_patch',changed=apply_render_fix(game_dir))
-            from iop_hill_vision import apply as apply_hill_vision
-            diagnostics.event('hill_vision_patch',changed=apply_hill_vision(game_dir))
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
             try:
                 ip=resolve_server(address)

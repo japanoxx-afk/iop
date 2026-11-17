@@ -107,3 +107,24 @@ def apply(game_dir):
         stream.flush()
         os.fsync(stream.fileno())
     return True
+
+
+def remove(game_dir):
+    """Remove this experimental hook while preserving all unrelated patches."""
+    path = Path(game_dir) / "iop.exe"
+    data = path.read_bytes()
+    original, patched = _state(data)
+    if original:
+        return False
+    if not patched:
+        raise ValueError("고지대 시야 패치 상태를 확인할 수 없습니다. iop.exe를 복구하세요.")
+    result = normalize(data)
+    backup = path.with_name("iop.exe.before-hill-vision-removal.bak")
+    if not backup.exists():
+        backup.write_bytes(data)
+    with path.open("r+b") as stream:
+        stream.write(result)
+        stream.truncate()
+        stream.flush()
+        os.fsync(stream.fileno())
+    return True
