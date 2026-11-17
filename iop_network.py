@@ -49,8 +49,9 @@ def patched_bytes(data, ip):
         raise ValueError('지원되지 않는 iop.exe입니다.')
     from iop_hotkeys import normalize_exe
     from iop_stability import normalize
+    from iop_hill_vision import normalize as normalize_hill_vision
     base = normalize(normalize_exe(data))
-    normalized = base[:ADDRESS_OFFSET]+ORIGINAL_ADDRESS+base[ADDRESS_OFFSET+16:]
+    normalized = normalize_hill_vision(base[:ADDRESS_OFFSET]+ORIGINAL_ADDRESS+base[ADDRESS_OFFSET+16:])
     if hashlib.sha256(normalized).hexdigest()!=ORIGINAL_HASH:
         raise ValueError('지원되지 않는 iop.exe 버전입니다. 원본은 변경하지 않았습니다.')
     return data[:ADDRESS_OFFSET]+(ip.encode('ascii')+b'\0').ljust(16,b'\0')+data[ADDRESS_OFFSET+16:]

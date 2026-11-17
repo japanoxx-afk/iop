@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 
 import iop_hill_vision as hill
+import iop_hotkeys
+from iop_network import patched_bytes as network_bytes
 
 
 class HillVisionPatch(unittest.TestCase):
@@ -31,3 +33,9 @@ class HillVisionPatch(unittest.TestCase):
         damaged[hill.REVEAL_OFFSET] ^= 1
         with self.assertRaises(ValueError):
             hill.patched_bytes(bytes(damaged))
+
+    def test_patch_composes_with_hotkeys_and_network(self):
+        patched = hill.patched_bytes(self.original)
+        hotkeys = iop_hotkeys.patch_exe(patched, {})
+        networked = network_bytes(hotkeys, '26.1.2.3')
+        self.assertTrue(hill._state(networked)[1])

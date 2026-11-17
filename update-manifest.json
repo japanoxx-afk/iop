@@ -1,7 +1,7 @@
 {
-  "version": "0.027",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.027/IOPLauncher_Server.exe",
-  "sha256": "ba2bb5b0c2f070e7ec5cd6be4776220e44816819ee520c243a515e25356738b4",
-  "size": 14438066,
-  "notes": "v0.026 즉시 종료 접근 위반 수정 · 고지대 상태를 쓰기 가능한 데이터 영역에 저장"
+  "version": "0.028",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.028/IOPLauncher_Server.exe",
+  "sha256": "997c80b0d80690823282f01b944fed196512b6d218ac879bbca90f2a92794c8f",
+  "size": 14437776,
+  "notes": "고지대 패치와 단축키·Radmin 실행파일 버전 검사의 호환성 수정"
 }
