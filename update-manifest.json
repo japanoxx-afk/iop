@@ -1,7 +1,7 @@
 {
-  "version": "0.025",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.025/IOPLauncher_Server.exe",
-  "sha256": "049e71b5d60c0a4f09d3757d6fd131b37ab921fc5e2fc817b7ef8e7ac7e77a67",
-  "size": 14405782,
-  "notes": "v0.026 고지대 패치 긴급 롤백 · 안정 버전 v0.025"
+  "version": "0.027",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.027/IOPLauncher_Server.exe",
+  "sha256": "ba2bb5b0c2f070e7ec5cd6be4776220e44816819ee520c243a515e25356738b4",
+  "size": 14438066,
+  "notes": "v0.026 즉시 종료 접근 위반 수정 · 고지대 상태를 쓰기 가능한 데이터 영역에 저장"
 }
