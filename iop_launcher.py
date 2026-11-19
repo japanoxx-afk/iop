@@ -12,7 +12,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.030"
+VERSION = "0.031"
+MANUAL_DOWNLOAD_URL = "https://github.com/japanoxx-afk/iop/tree/main/release"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
 PS_CHECK_IPX = r"""
@@ -693,7 +694,12 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         def done(manifest, error):
             self._update_pending=False
             if error:
-                messagebox.showerror("업데이트 오류", "GitHub 업데이트 확인 실패:\n" + error)
+                diagnostics.event("update_check_error", error=error)
+                if messagebox.askyesno("업데이트 오류", "GitHub 업데이트 확인 실패:\n" + error +
+                                       "\n\n브라우저에서 최신 런처를 직접 내려받을까요?\n"
+                                       "받은 exe로 지금 런처 파일을 교체하세요.\n" + MANUAL_DOWNLOAD_URL):
+                    import webbrowser
+                    webbrowser.open(MANUAL_DOWNLOAD_URL)
                 self.set_status("업데이트 확인 실패")
                 return
             remote_ver = manifest["version"]

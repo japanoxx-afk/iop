@@ -7,6 +7,8 @@ import shutil
 import sys
 import time
 import urllib.request
+
+import iop_http
 import uuid
 
 MANIFEST_URL = "https://raw.githubusercontent.com/japanoxx-afk/iop/main/game-assets/manifest.json"
@@ -28,7 +30,7 @@ def _read_response(opener, url, limit):
     return data
 
 
-def fetch_manifest(opener=urllib.request.urlopen):
+def fetch_manifest(opener=iop_http.urlopen):
     data = json.loads(_read_response(opener, MANIFEST_URL, 64 * 1024).decode("utf-8-sig"))
     if not isinstance(data, dict):
         raise ValueError("게임 파일 배포 정보 형식이 올바르지 않습니다.")
@@ -52,7 +54,7 @@ def fetch_manifest(opener=urllib.request.urlopen):
     return data
 
 
-def _download(item, opener=urllib.request.urlopen):
+def _download(item, opener=iop_http.urlopen):
     data = _read_response(opener, item["url"], item["size"])
     if len(data) != item["size"] or _sha(data) != item["sha256"]:
         raise ValueError("GitHub 게임 파일의 크기 또는 SHA-256 검증에 실패했습니다.")
@@ -93,7 +95,7 @@ def _replace(path, data, backup_label):
         stage.unlink(missing_ok=True)
 
 
-def ensure_iop(game_dir, manifest=None, opener=urllib.request.urlopen):
+def ensure_iop(game_dir, manifest=None, opener=iop_http.urlopen):
     path = Path(game_dir) / "iop.exe"
     if iop_is_canonical(path):
         return False
@@ -125,7 +127,7 @@ def _bundled(name):
     return data
 
 
-def ensure_graphics(game_dir, manifest=None, opener=urllib.request.urlopen):
+def ensure_graphics(game_dir, manifest=None, opener=iop_http.urlopen):
     root = Path(game_dir)
     wanted = ("ddraw.dll", "ddraw.ini")
     missing = [name for name in wanted if not (root / name).is_file()]
@@ -142,7 +144,7 @@ def ensure_graphics(game_dir, manifest=None, opener=urllib.request.urlopen):
     return installed
 
 
-def ensure_game_files(game_dir, opener=urllib.request.urlopen):
+def ensure_game_files(game_dir, opener=iop_http.urlopen):
     """Best effort: a failed GitHub check never blocks a launch with usable local files."""
     root = Path(game_dir)
     result = {"iop_restored": False, "graphics_installed": [], "errors": []}

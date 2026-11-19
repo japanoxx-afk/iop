@@ -8,6 +8,8 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+
+import iop_http
 import uuid
 import time
 
@@ -26,7 +28,7 @@ def version_tuple(value):
         raise ValueError("업데이트 버전 형식이 올바르지 않습니다.")
 
 
-def fetch_manifest(opener=urllib.request.urlopen):
+def fetch_manifest(opener=iop_http.urlopen):
     request = urllib.request.Request(MANIFEST_URL, headers={"User-Agent": "IOPLauncher"})
     with opener(request, timeout=10) as response:
         payload = response.read(64 * 1024 + 1)
@@ -58,7 +60,7 @@ def _validate_pe(path):
         raise ValueError("다운로드 파일의 PE 헤더가 손상되었습니다.")
 
 
-def download(manifest, opener=urllib.request.urlopen, directory=None):
+def download(manifest, opener=iop_http.urlopen, directory=None):
     target = Path(directory or tempfile.gettempdir()) / ("IOPLauncher-" + uuid.uuid4().hex + ".exe")
     request = urllib.request.Request(manifest["url"], headers={"User-Agent": "IOPLauncher"})
     digest = hashlib.sha256()
