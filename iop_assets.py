@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import time
 import urllib.request
 import uuid
@@ -104,27 +105,56 @@ def ensure_iop(game_dir, manifest=None, opener=urllib.request.urlopen):
     return True
 
 
+def _bundle_root():
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
+    return base / "game-assets"
+
+
+def _bundled(name):
+    """Hash-verified copy shipped inside the launcher, so no network is needed."""
+    try:
+        root = _bundle_root()
+        manifest = json.loads((root / "manifest.json").read_bytes().decode("utf-8-sig"))
+        item = manifest["files"][name]
+        relative = str(item["url"]).split("/game-assets/", 1)[1]
+        data = (root / relative).read_bytes()
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return None
+    if len(data) != int(item["size"]) or _sha(data) != str(item["sha256"]).lower():
+        return None
+    return data
+
+
 def ensure_graphics(game_dir, manifest=None, opener=urllib.request.urlopen):
     root = Path(game_dir)
     wanted = ("ddraw.dll", "ddraw.ini")
     missing = [name for name in wanted if not (root / name).is_file()]
     if not missing:
         return []
-    manifest = manifest or fetch_manifest(opener)
     installed = []
     for name in missing:
-        data = _download(manifest["files"][name], opener)
+        data = _bundled(name)
+        if data is None:
+            manifest = manifest or fetch_manifest(opener)
+            data = _download(manifest["files"][name], opener)
         _replace(root / name, data, "before-graphics-update")
         installed.append(name)
     return installed
 
 
 def ensure_game_files(game_dir, opener=urllib.request.urlopen):
+    """Best effort: a failed GitHub check never blocks a launch with usable local files."""
     root = Path(game_dir)
-    need_iop = not iop_is_canonical(root / "iop.exe")
-    need_graphics = any(not (root / name).is_file() for name in ("ddraw.dll", "ddraw.ini"))
-    manifest = fetch_manifest(opener) if need_iop or need_graphics else None
-    return {
-        "iop_restored": ensure_iop(root, manifest, opener) if need_iop else False,
-        "graphics_installed": ensure_graphics(root, manifest, opener) if need_graphics else [],
-    }
+    result = {"iop_restored": False, "graphics_installed": [], "errors": []}
+    try:
+        result["graphics_installed"] = ensure_graphics(root, None, opener)
+    except Exception as exc:
+        result["errors"].append(f"graphics: {exc!r}")
+    if not iop_is_canonical(root / "iop.exe"):
+        try:
+            result["iop_restored"] = ensure_iop(root, None, opener)
+        except Exception as exc:
+            if not (root / "iop.exe").is_file():
+                raise ValueError(f"iop.exe가 없고 GitHub에서 내려받지 못했습니다: {exc}") from exc
+            result["errors"].append(f"iop.exe: {exc!r}")
+    return result

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import iop_assets
 
@@ -36,7 +37,7 @@ class AssetTests(unittest.TestCase):
         payloads = {manifest["files"]["ddraw.dll"]["url"]: dll,
                     manifest["files"]["ddraw.ini"]["url"]: ini}
         opener = lambda request, **k: Response(payloads[request.full_url])
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, patch.object(iop_assets, "_bundled", return_value=None):
             root = Path(directory)
             (root / "ddraw.ini").write_bytes(b"custom")
             self.assertEqual(iop_assets.ensure_graphics(root, manifest, opener), ["ddraw.dll"])

@@ -1,7 +1,7 @@
 {
-  "version": "0.024",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.024/IOPLauncher_Server.exe",
-  "sha256": "10c1f43c6911c6383dc732c4e0c3191bc1db05baf2652f66b67a68e19f9019b8",
-  "size": 14432102,
-  "notes": "안정성 요청에 따라 v0.024로 롤백"
+  "version": "0.030",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.030/IOPLauncher_Server.exe",
+  "sha256": "9c10d6dcba86891c8e801f7bdd39f9ee2e830b923093ddbe757da371936cf780",
+  "size": 13221828,
+  "notes": "IP 설정 없이 게임 시작 가능: GitHub 파일 확인 실패 시에도 로컬 파일로 실행, 그래픽 파일 내장"
 }

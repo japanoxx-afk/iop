@@ -208,7 +208,9 @@ class ServerTab:
         aspect=getattr(self,'aspect_var',None).get() if getattr(self,'aspect_var',None) else self.cfg.get('display_aspect','4:3')
         resolution=getattr(self,'resolution_var',None).get() if getattr(self,'resolution_var',None) else self.cfg.get('display_resolution','1024x768')
         address=self.mapping_ip.get().strip() or self.connect_to.get().strip()
-        network=bool(self.mapping_ip.get().strip() or address not in ('',SERVER_NAME) or hosts_mapping())
+        try: mapped=hosts_mapping()
+        except OSError: mapped=None
+        network=bool(self.mapping_ip.get().strip() or address not in ('',SERVER_NAME) or mapped)
         self.cfg.update(mode=mode,display_aspect=aspect,display_resolution=resolution)
         self._save_network()
         hotkeys=dict(self.cfg.get("production_hotkeys",{}))
@@ -237,7 +239,7 @@ class ServerTab:
                 ip=resolve_server(address)
                 with socket.create_connection((ip,6305),timeout=3): pass
                 remote=fetch_manifest(ip)
-            except OSError as exc:
+            except (OSError,ValueError) as exc:
                 diagnostics.event('offline_launch',reason=str(exc))
                 return str(Path(game_dir)/'iop.exe'),None,0
             if hosts_mapping()!=ip:
