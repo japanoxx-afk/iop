@@ -53,6 +53,10 @@ def manifest(game_dir):
     from iop_stability import normalize
     from iop_hill_vision import normalize as normalize_hill_vision
     result['iop.exe']=hashlib.sha256(normalize_hill_vision(normalize(normalize_exe(patched_bytes((root/'iop.exe').read_bytes(),'127.0.0.1'))))).hexdigest()
+    # Fog rules are not in any file hash (the exe is normalized), so peers must
+    # also agree on the hill vision version or one side sees through hills.
+    from iop_hill_vision import FEATURE_VERSION
+    result['feature/hill_vision']=FEATURE_VERSION
     return {'protocol':1,'files':result}
 
 def compare(local, remote):
@@ -63,7 +67,7 @@ def compare(local, remote):
     mismatches=[name for name in sorted(set(local_files)|set(remote_files)) if local_files.get(name)!=remote_files.get(name)]
     if mismatches:
         raise ValueError('A·B 게임 파일 불일치. 양쪽 게임을 종료하고 A의 동일한 데이터/패치를 적용하세요.\n'+'\n'.join(mismatches[:20]))
-    return len(local_files)
+    return sum(1 for name in local_files if not name.startswith('feature/'))
 
 async def serve_manifest(writer, game_dir):
     try:

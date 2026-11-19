@@ -225,8 +225,8 @@ class ServerTab:
             from iop_assets import ensure_game_files
             assets=ensure_game_files(game_dir)
             diagnostics.event('game_files_checked',**assets)
-            from iop_hill_vision import remove as remove_hill_vision
-            diagnostics.event('hill_vision_disabled',removed=remove_hill_vision(game_dir))
+            from iop_hill_vision import apply as apply_hill_vision
+            diagnostics.event('hill_vision_checked',changed=apply_hill_vision(game_dir))
             changed=0
             if not is_applied(game_dir,hotkeys):
                 changed=apply(game_dir,hotkeys)

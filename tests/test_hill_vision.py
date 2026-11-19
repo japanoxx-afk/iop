@@ -24,10 +24,37 @@ class HillVisionPatch(unittest.TestCase):
         for offset, expected in zip(hill.CALL_SITES, hill.PATCHED_CALLS):
             self.assertEqual(patched[offset:offset+5], expected)
 
-    def test_runtime_flag_is_in_writable_data_not_code(self):
-        # The v0.026 regression wrote this flag to read/execute-only .text.
-        self.assertTrue(0x4D1000 <= hill.FLAG_VA < 0x4E3000)
-        self.assertNotEqual(hill.FLAG_VA, 0x4C7FF0)
+    def test_state_byte_is_unused_writable_memory(self):
+        # v0.026 wrote to read-only .text; v0.027-v0.029 used 0x4E2FF0 inside .data.
+        import struct
+        pe = struct.unpack_from('<I', self.original, 0x3C)[0]
+        count = struct.unpack_from('<H', self.original, pe + 6)[0]
+        table = pe + 24 + struct.unpack_from('<H', self.original, pe + 20)[0]
+        sections = {self.original[o:o + 8].rstrip(bytes(1)): struct.unpack_from('<II', self.original, o + 8)
+                    for o in range(table, table + 40 * count, 40)}
+        size, rva = sections[b'.data']
+        end = 0x400000 + rva + size
+        self.assertTrue(end <= hill.STATE_VA < (end + 0xFFF) & ~0xFFF)
+        self.assertNotIn((hill.STATE_VA).to_bytes(4, 'little'), self.original[0x1000:0xC8000])
+
+    def test_wrapper_repushes_fog_arguments_and_pops_them(self):
+        # The legacy wrapper called 0x42D940 without re-pushing its three
+        # arguments, which turned tile y into the sight index (BBSIM #847234).
+        self.assertEqual(hill.WRAPPER.count(bytes.fromhex('ff74240c')), 3)
+        self.assertTrue(hill.WRAPPER.endswith(bytes.fromhex('c20c00')))
+
+    def test_legacy_hooks_are_replaced(self):
+        import subprocess
+        for commit in ('2daad4c', 'c722ce6'):
+            source = subprocess.run(['git', 'show', commit + ':iop_hill_vision.py'], capture_output=True).stdout
+            if not source:
+                self.skipTest('git history unavailable')
+            namespace = {}
+            exec(compile(source, commit, 'exec'), namespace)
+            legacy = namespace['patched_bytes'](self.original)
+            self.assertTrue(hill.is_legacy(legacy))
+            self.assertEqual(hill.normalize(legacy), self.original)
+            self.assertEqual(hill.patched_bytes(legacy), hill.patched_bytes(self.original))
 
     def test_unknown_reveal_code_is_rejected(self):
         damaged = bytearray(self.original)
