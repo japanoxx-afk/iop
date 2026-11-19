@@ -1,7 +1,7 @@
 {
-  "version": "0.032",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.032/IOPLauncher_Server.exe",
-  "sha256": "8463da5ca4f80fbe8eb913e9726e6c30ab161b54b9cae6144edf14519e6eefd9",
-  "size": 13244112,
-  "notes": "고지대 시야 재활성화: 저지대 지상 유닛은 고지대를 볼 수 없음. A·B 모두 업데이트 필요"
+  "version": "0.033",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.033/IOPLauncher_Server.exe",
+  "sha256": "61eeae8806839a8f40d070c8a8abac48af31b4c29e83062cd8c0ba2a3807c793",
+  "size": 13243974,
+  "notes": "v0.032 고지대 시야 롤백(자원이 보이지 않는 문제). A·B 모두 업데이트 필요"
 }

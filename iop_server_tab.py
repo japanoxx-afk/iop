@@ -225,8 +225,10 @@ class ServerTab:
             from iop_assets import ensure_game_files
             assets=ensure_game_files(game_dir)
             diagnostics.event('game_files_checked',**assets)
-            from iop_hill_vision import apply as apply_hill_vision
-            diagnostics.event('hill_vision_checked',changed=apply_hill_vision(game_dir))
+            # v0.033 rollback: v0.032 hill vision hid resources in game. Strip any
+            # hill hook (v0.026-v0.032) before launch until that is understood.
+            from iop_hill_vision import remove as remove_hill_vision
+            diagnostics.event('hill_vision_disabled',removed=remove_hill_vision(game_dir))
             changed=0
             if not is_applied(game_dir,hotkeys):
                 changed=apply(game_dir,hotkeys)

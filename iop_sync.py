@@ -53,10 +53,8 @@ def manifest(game_dir):
     from iop_stability import normalize
     from iop_hill_vision import normalize as normalize_hill_vision
     result['iop.exe']=hashlib.sha256(normalize_hill_vision(normalize(normalize_exe(patched_bytes((root/'iop.exe').read_bytes(),'127.0.0.1'))))).hexdigest()
-    # Fog rules are not in any file hash (the exe is normalized), so peers must
-    # also agree on the hill vision version or one side sees through hills.
-    from iop_hill_vision import FEATURE_VERSION
-    result['feature/hill_vision']=FEATURE_VERSION
+    # No feature/hill_vision marker while hill vision is disabled: v0.031 and
+    # v0.033 peers match, and v0.032 (hill vision on) peers are blocked.
     return {'protocol':1,'files':result}
 
 def compare(local, remote):
