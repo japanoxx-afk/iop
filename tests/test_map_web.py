@@ -35,6 +35,7 @@ class MapWebApi(unittest.TestCase):
 
     def test_unchanged_round_trip_is_byte_identical(self):
         data = self.api.get_map('base.map')
+        self.assertEqual(data['sprites'], {})  # no data/Rsi.res: page falls back to simple marks
         self.api.put_map('copy.map', data)
         self.assertEqual((self.root / 'map/multi/copy.map').read_bytes(), fixture())
 

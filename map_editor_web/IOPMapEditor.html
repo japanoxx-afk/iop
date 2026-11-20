@@ -12,7 +12,7 @@ button,select,input{font:inherit;color:var(--text);background:var(--panel2);bord
 button{cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.45;cursor:default}
 button.on{background:var(--accent2);border-color:var(--accent)}
 input[type=number]{width:64px}
-#app{display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:260px 1fr 230px;height:100%}
+#app{display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:310px 1fr 230px;height:100%}
 #menubar{grid-column:1/4;display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
 #menubar .sep{width:1px;height:20px;background:var(--line);margin:0 4px}
 #menubar .title{font-weight:bold;margin-right:8px;color:#fff}
@@ -20,6 +20,7 @@ input[type=number]{width:64px}
 #right{border-right:0;border-left:1px solid var(--line)}
 .group{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:var(--panel2)}
 .group h3{margin:0;padding:5px 8px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line);letter-spacing:.5px}
+.group.fold h3{cursor:pointer}.group.fold h3::after{content:' ▾'}.group.fold.closed h3::after{content:' ▸'}.group.closed .body{display:none}.group.closed h3{border-bottom:0}
 .group .body{padding:6px 8px}
 .row{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:3px 0}
 .tools button{min-width:0;flex:1 1 30%;padding:4px 2px;font-size:12px}
@@ -33,7 +34,7 @@ input[type=number]{width:64px}
 #maplist div{padding:3px 6px;border-radius:3px;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
 #maplist div:hover{background:#30353f}#maplist div.cur{background:var(--accent2)}
 #maplist small{color:var(--dim)}
-#palWrap{position:relative;height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;background:#111}
+#palWrap{position:relative;height:max(260px,calc(100vh - 420px));overflow-y:auto;border:1px solid var(--line);border-radius:4px;background:#111}
 #palSpacer{position:absolute;left:0;top:0;width:1px}
 #palette{position:sticky;top:0;left:0;display:block;image-rendering:pixelated;cursor:pointer}
 #tilePreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line);background:#111}
@@ -79,7 +80,7 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
   </div>
 
   <div id="side">
-    <div class="group" id="gMaps"><h3>맵 목록 (map/multi)</h3><div class="body">
+    <div class="group fold" id="gMaps"><h3>맵 목록 (map/multi)</h3><div class="body">
       <div class="row"><button id="bRefreshMaps">새로고침</button><small id="mapsFolder" class="note"></small></div>
       <div id="maplist"></div>
     </div></div>
@@ -99,6 +100,23 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
       <div class="row"><span class="note" id="toolHint"></span></div>
     </div></div>
 
+    <div class="group" id="gTile"><h3>타일 팔레트</h3><div class="body">
+      <div class="row">
+        <select id="palFilter" style="flex:1">
+          <option value="all">전체</option><option value="일반">일반</option><option value="언덕">언덕</option>
+          <option value="입구">입구</option><option value="미분류">미분류</option><option value="used">이 맵에서 사용 중</option>
+        </select>
+        <label class="chk" title="고지대 표시용으로 복제된 타일 숨김"><input type="checkbox" id="palHideHigh" checked>복제 숨김</label>
+      </div>
+      <div id="palWrap"><div id="palSpacer"></div><canvas id="palette"></canvas></div>
+      <div class="row" style="margin-top:6px">
+        <canvas id="tilePreview" width="32" height="32"></canvas>
+        <div style="flex:1">
+          <div id="tileInfo" class="note">타일 없음</div>
+          <div class="row"><span class="note">분류</span><select id="tileCat"><option>일반</option><option>언덕</option><option>입구</option><option>미분류</option></select></div>
+        </div>
+      </div>
+    </div></div>
     <div class="group" id="gBrush"><h3>브러시</h3><div class="body">
       <div class="row"><span>크기</span><input id="brushSize" type="range" min="1" max="15" value="1" style="flex:1"><b id="brushSizeLbl">1</b></div>
       <div class="row" id="shapeBtns"><button data-shape="square" class="on">사각형</button><button data-shape="circle">원형</button></div>
@@ -122,23 +140,6 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
       </div>
     </div></div>
 
-    <div class="group" id="gTile"><h3>타일 팔레트</h3><div class="body">
-      <div class="row">
-        <select id="palFilter" style="flex:1">
-          <option value="all">전체</option><option value="일반">일반</option><option value="언덕">언덕</option>
-          <option value="입구">입구</option><option value="미분류">미분류</option><option value="used">이 맵에서 사용 중</option>
-        </select>
-        <label class="chk" title="고지대 표시용으로 복제된 타일 숨김"><input type="checkbox" id="palHideHigh" checked>복제 숨김</label>
-      </div>
-      <div id="palWrap"><div id="palSpacer"></div><canvas id="palette"></canvas></div>
-      <div class="row" style="margin-top:6px">
-        <canvas id="tilePreview" width="32" height="32"></canvas>
-        <div style="flex:1">
-          <div id="tileInfo" class="note">타일 없음</div>
-          <div class="row"><span class="note">분류</span><select id="tileCat"><option>일반</option><option>언덕</option><option>입구</option><option>미분류</option></select></div>
-        </div>
-      </div>
-    </div></div>
   </div>
 
   <div id="stage"><canvas id="cv"></canvas><div id="empty">왼쪽 맵 목록에서 맵을 열거나 [새 맵]을 누르세요.</div></div>
@@ -147,10 +148,11 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
     <div class="group"><h3>미니맵</h3><div class="body" id="minimapBox"><canvas id="minimap" width="128" height="128"></canvas></div></div>
 
     <div class="group" id="gLayers"><h3>표시</h3><div class="body">
-      <label class="chk"><input type="checkbox" id="lyRes" checked>자원 (청록 ◆)</label>
+      <label class="chk"><input type="checkbox" id="lyRes" checked>자원</label>
       <label class="chk"><input type="checkbox" id="lyStart" checked>시작 위치</label>
       <label class="chk"><input type="checkbox" id="lyHigh" checked>고지대 (자주색)</label>
       <label class="chk"><input type="checkbox" id="lyObj" checked>장식 (나무 등)</label>
+      <label class="chk"><input type="checkbox" id="lySimple">간단 표시 (◆·■)</label>
       <label class="chk"><input type="checkbox" id="lyGrid">격자</label>
       <label class="chk"><input type="checkbox" id="lyEdge" checked>맵 가장자리</label>
     </div></div>
@@ -226,7 +228,7 @@ let M=null;                 // open map
 let tool='tile', brush=1, shape='square', zoom=16, ox=0, oy=0;
 let curTile=0, curStart=0, sel=null, clip=null, pasting=false;
 let undoStack=[], redoStack=[], dirty=false, maps=[];
-let tileCache=new Map(), keyIndex=null;
+let tileCache=new Map(), keyIndex=null, spriteCache=new Map();
 
 function flags(id){return M.tiles[id*TILE]|M.tiles[id*TILE+1]<<8}
 function isHighTile(id){return (flags(id)&HIGH)!==0}
@@ -242,12 +244,13 @@ function loadDoc(d){
      objects:fromB64(d.objects),fixed:d.fixed,extra:d.extra,
      grid:new Uint16Array(fromB64(d.grid).buffer.slice(0)),
      tiles:tiles,tileCount:d.tileCount,minimap:fromB64(d.minimap),
-     palette:fromB64(d.palette),categories:d.categories.slice()};
-  tileCache=new Map();keyIndex=null;undoStack=[];redoStack=[];dirty=false;sel=null;clip=null;pasting=false;
+     palette:fromB64(d.palette),categories:d.categories.slice(),sprites:d.sprites||{}};
+  tileCache=new Map();spriteCache=new Map();keyIndex=null;undoStack=[];redoStack=[];dirty=false;sel=null;clip=null;pasting=false;
   curStart=0;curTile=mostUsedGround();
   $('empty').style.display='none';
   ['bSave','bSaveAs','bProps','bCheck'].forEach(id=>$(id).disabled=false);
-  fit();refreshAll();
+  $('gMaps').classList.add('closed');
+  viewStart();refreshAll();
 }
 function mostUsedGround(){
   const count=new Map();for(const id of M.grid)count.set(id,(count.get(id)||0)+1);
@@ -264,6 +267,26 @@ function tileCanvas(id){
   const ctx=c.getContext('2d'),img=ctx.createImageData(32,32),p=M.palette,base=id*TILE+2;
   for(let i=0;i<1024;i++){const v=M.tiles[base+i]*3;img.data[i*4]=p[v];img.data[i*4+1]=p[v+1];img.data[i*4+2]=p[v+2];img.data[i*4+3]=255}
   ctx.putImageData(img,0,0);tileCache.set(id,c);return c;
+}
+const RESOURCE='0A200031';
+// Object sprites from data/Rsi.res, coloured with the map's theme palette.
+// The game places objects at (x*32, y*32); the sprite box is centred there.
+function spriteCanvas(key){
+  if(spriteCache.has(key))return spriteCache.get(key);
+  const s=M.sprites[key];let c=null;
+  if(s){c=document.createElement('canvas');c.width=s.w;c.height=s.h;
+    const g=c.getContext('2d'),img=g.createImageData(s.w,s.h),px=fromB64(s.pixels),mk=fromB64(s.mask),p=M.palette;
+    for(let i=0;i<s.w*s.h;i++)if(mk[i]){const v=px[i]*3;img.data[i*4]=p[v];img.data[i*4+1]=p[v+1];img.data[i*4+2]=p[v+2];img.data[i*4+3]=255}
+    g.putImageData(img,0,0);c.info=s}
+  spriteCache.set(key,c);return c;
+}
+function drawSprite(c,x,y,alpha=1){
+  const s=c.info,k=zoom/32,px=ox+x*zoom+(s.x-s.boxW/2)*k,py=oy+y*zoom+(s.y-s.boxH/2)*k;
+  if(alpha!==1)ctx.globalAlpha=alpha;ctx.drawImage(c,px,py,s.w*k,s.h*k);if(alpha!==1)ctx.globalAlpha=1;
+}
+function viewStart(){
+  zoom=16;$('zoomLbl').textContent=zoom;const p=M.starts.find(q=>q[0]>=0)||[M.W/2,M.H/2];
+  ox=Math.round(stage.clientWidth/2-(p[0]+.5)*zoom);oy=Math.round(stage.clientHeight/2-(p[1]+.5)*zoom);draw();
 }
 function tileKey(id){let s='';const b=id*TILE;for(let i=0;i<TILE;i+=4)s+=String.fromCharCode(M.tiles[b+i]|M.tiles[b+i+1]<<8,M.tiles[b+i+2]|M.tiles[b+i+3]<<8);return s}
 function ensureIndex(){if(keyIndex)return;keyIndex=new Map();for(let id=0;id<M.tileCount;id++){const k=tileKey(id);if(!keyIndex.has(k))keyIndex.set(k,id)}}
@@ -345,18 +368,27 @@ function draw(){
     for(let y=y0;y<=y1;y++){const py=oy+y*zoom+.5;ctx.moveTo(ox+x0*zoom,py);ctx.lineTo(ox+x1*zoom,py)}
     ctx.stroke();
   }
+  const simple=$('lySimple').checked,sprites=[];
   if($('lyObj').checked){
-    ctx.fillStyle='#5fe07a';const s=Math.max(2,zoom/4);
+    ctx.fillStyle='#5fe07a';const sq=Math.max(2,zoom/4);
     for(let i=0;i<M.objects.length;i+=8){const x=M.objects[i]|M.objects[i+1]<<8,y=M.objects[i+2]|M.objects[i+3]<<8;
-      if(x>=x0&&x<x1&&y>=y0&&y<y1)ctx.fillRect(ox+(x+.5)*zoom-s/2,oy+(y+.5)*zoom-s/2,s,s)}
+      if(x<x0-8||x>x1+8||y<y0-8||y>y1+8)continue;
+      const key=(M.objects[i+4]|M.objects[i+5]<<8|M.objects[i+6]<<16|M.objects[i+7]<<24>>>0).toString(16).toUpperCase().padStart(8,'0'),c=simple?null:spriteCanvas(key);
+      if(c)sprites.push([y,x,c]);else if(x>=x0&&x<x1&&y>=y0&&y<y1)ctx.fillRect(ox+(x+.5)*zoom-sq/2,oy+(y+.5)*zoom-sq/2,sq,sq)}
   }
+  const resImg=simple?null:spriteCanvas(RESOURCE);
   if($('lyRes').checked){
     const s=Math.max(3,zoom*.45);ctx.lineWidth=1;
-    for(const [x,y] of M.resources){if(x<x0-1||x>x1||y<y0-1||y>y1)continue;
+    for(const [x,y] of M.resources){if(x<x0-3||x>x1+3||y<y0-3||y>y1+3)continue;
+      if(resImg){sprites.push([y,x,resImg]);continue}
       const cx=ox+(x+.5)*zoom,cy=oy+(y+.5)*zoom;
       ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();
       ctx.fillStyle='#21fff0';ctx.fill();ctx.strokeStyle='#003b38';ctx.stroke()}
   }
+  sprites.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);for(const [y,x,c] of sprites)drawSprite(c,x,y);
+  if(resImg&&$('lyRes').checked&&zoom>=6){ // mark the stored coordinate under each resource image
+    ctx.fillStyle='#21fff0';const d=Math.max(2,zoom/6);
+    for(const [x,y] of M.resources)if(x>=x0-1&&x<=x1&&y>=y0-1&&y<=y1)ctx.fillRect(ox+x*zoom-d/2,oy+y*zoom-d/2,d,d)}
   if($('lyStart').checked){
     const r=Math.max(8,zoom*.7);ctx.font=`bold ${Math.round(r*1.1)}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
     M.starts.forEach(([x,y],i)=>{const cx=ox+(x+.5)*zoom,cy=oy+(y+.5)*zoom;
@@ -369,7 +401,7 @@ function draw(){
   if(hover&&inside(...hover)){
     if(pasting&&clip){ctx.globalAlpha=.6;for(let dx=0;dx<clip.w;dx++)for(let dy=0;dy<clip.h;dy++){const x=hover[0]+dx,y=hover[1]+dy;if(inside(x,y))ctx.drawImage(tileCanvas(clip.ids[dx*clip.h+dy]),ox+x*zoom,oy+y*zoom,zoom,zoom)}ctx.globalAlpha=1;ctx.strokeStyle='#4f8cff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,clip.w*zoom,clip.h*zoom)}
     else if(['tile','erase','high','low'].includes(tool)){ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1;for(const [x,y] of cellsUnder(...hover))ctx.strokeRect(ox+x*zoom+.5,oy+y*zoom+.5,zoom-1,zoom-1)}
-    else{ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,zoom,zoom)}
+    else{if(tool==='res'&&resImg&&resourceAt(...hover)<0)drawSprite(resImg,hover[0],hover[1],.55);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,zoom,zoom)}
   }
   drawMinimapView();
 }
@@ -394,7 +426,7 @@ function minimapGo(ev){const r=mm.getBoundingClientRect(),x=(ev.clientX-r.left)/
 mm.addEventListener('mousedown',e=>{if(!M)return;minimapGo(e);const mv=ev=>minimapGo(ev),up=()=>{removeEventListener('mousemove',mv);removeEventListener('mouseup',up)};addEventListener('mousemove',mv);addEventListener('mouseup',up)});
 
 // ---------- palette ----------
-const PAL_COLS=7,PAL_CELL=34;let palList=[];
+const PAL_COLS=8,PAL_CELL=34;let palList=[];
 function rebuildPalette(){
   if(!M){palList=[];return}
   const f=$('palFilter').value,hide=$('palHideHigh').checked;let used=null;
@@ -454,7 +486,8 @@ function setTool(t){tool=t;pasting=false;document.querySelectorAll('#toolBtns bu
 document.querySelectorAll('#toolBtns button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 $('brushSize').oninput=e=>{brush=+e.target.value;$('brushSizeLbl').textContent=brush;draw()};
 document.querySelectorAll('#shapeBtns button').forEach(b=>b.onclick=()=>{shape=b.dataset.shape;document.querySelectorAll('#shapeBtns button').forEach(x=>x.classList.toggle('on',x===b));draw()});
-['lyRes','lyStart','lyHigh','lyObj','lyGrid','lyEdge'].forEach(id=>$(id).onchange=draw);
+['lyRes','lyStart','lyHigh','lyObj','lyGrid','lyEdge','lySimple'].forEach(id=>$(id).onchange=draw);
+document.querySelectorAll('.group.fold h3').forEach(h=>h.onclick=()=>{h.parentNode.classList.toggle('closed');drawPalette()});
 
 // ---------- selection ----------
 function updateSel(){

@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.035"
+VERSION = "0.036"
 MANUAL_DOWNLOAD_URL = "https://github.com/japanoxx-afk/iop/tree/main/release"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----

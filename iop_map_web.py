@@ -31,6 +31,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import iop_maps
+import iop_sprites
 from iop_map_format import MapDocument, HIGH_GROUND_FLAG
 
 PORT = 47232
@@ -211,6 +212,17 @@ class Api:
         self.categories = categories if categories is not None else {}
         self.save_categories = save_categories or (lambda: None)
         self.lock = threading.Lock()
+        self._sprites = None
+
+    def sprites(self, doc):
+        """Resource and decoration images from data/Rsi.res ({} if unavailable)."""
+        root = self.game_dir()
+        if self._sprites is None or self._sprites[0] != root:
+            self._sprites = (root, iop_sprites.SpriteLibrary(root))
+        ids = [iop_sprites.RESOURCE_OBJECT]
+        ids += [struct.unpack_from('<I', doc.objects, i)[0] for i in range(4, len(doc.objects) - 3, 8)]
+        with self.lock:
+            return self._sprites[1].as_json(ids)
 
     def folder(self):
         if not self.game_dir():
@@ -245,7 +257,9 @@ class Api:
             raise FileNotFoundError(name)
         doc = MapDocument.load(path)
         palette = iop_maps.read_palette(self.game_dir(), doc.theme)
-        return doc_to_json(doc, path.name, palette, self.categories)
+        result = doc_to_json(doc, path.name, palette, self.categories)
+        result['sprites'] = self.sprites(doc)
+        return result
 
     def put_map(self, name, data, overwrite=False):
         path = self._path(name)
@@ -271,6 +285,7 @@ class Api:
         palette = iop_maps.read_palette(self.game_dir(), doc.theme)
         result = doc_to_json(doc, '', palette, self.categories)
         result['hash'] = None
+        result['sprites'] = self.sprites(doc)
         return result
 
     def set_category(self, data):
