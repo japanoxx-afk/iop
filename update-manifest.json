@@ -1,7 +1,7 @@
 {
-  "version": "0.035",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.035/IOPLauncher_Server.exe",
-  "sha256": "b9b23df51894f946109cc5714134b4151efabdfd9610463b0b67bf161e2069e8",
-  "size": 13354823,
-  "notes": "브라우저 맵 에디터 추가: [멀티 맵 에디터] 탭 → [웹 맵 에디터 열기]"
+  "version": "0.036",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.036/IOPLauncher_Server.exe",
+  "sha256": "9799281f18610264209a54460ccebf8c34adc5a0efea119533c466973275ee98",
+  "size": 13359876,
+  "notes": "웹 맵 에디터: 실제 자원·나무 그림 표시, 타일 팔레트 위치 개선"
 }
