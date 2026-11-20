@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IOP 맵 에디터</title>
+<style>
+:root{--bg:#16181d;--panel:#1f2229;--panel2:#272b34;--line:#363b46;--text:#e3e6ec;--dim:#8f96a3;--accent:#4f8cff;--accent2:#2d5fc4;--warn:#ffb347;--bad:#ff6b6b;--ok:#4cd28a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 "Malgun Gothic","맑은 고딕",system-ui,sans-serif;overflow:hidden}
+button,select,input{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:3px 8px}
+button{cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.45;cursor:default}
+button.on{background:var(--accent2);border-color:var(--accent)}
+input[type=number]{width:64px}
+#app{display:grid;grid-template-rows:auto 1fr auto;grid-template-columns:260px 1fr 230px;height:100%}
+#menubar{grid-column:1/4;display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+#menubar .sep{width:1px;height:20px;background:var(--line);margin:0 4px}
+#menubar .title{font-weight:bold;margin-right:8px;color:#fff}
+#side,#right{overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:6px}
+#right{border-right:0;border-left:1px solid var(--line)}
+.group{border:1px solid var(--line);border-radius:6px;margin-bottom:8px;background:var(--panel2)}
+.group h3{margin:0;padding:5px 8px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line);letter-spacing:.5px}
+.group .body{padding:6px 8px}
+.row{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:3px 0}
+.tools button{min-width:0;flex:1 1 30%;padding:4px 2px;font-size:12px}
+#stage{position:relative;overflow:hidden;background:#0d0e11;cursor:crosshair}
+#cv{position:absolute;left:0;top:0;image-rendering:pixelated}
+#status{grid-column:1/4;display:flex;gap:16px;padding:4px 10px;background:var(--panel);border-top:1px solid var(--line);color:var(--dim);white-space:nowrap;overflow:hidden}
+#status b{color:var(--text);font-weight:normal}
+#stMsg{margin-left:auto;color:var(--text)}
+#stMsg.bad{color:var(--bad)}#stMsg.ok{color:var(--ok)}
+#maplist{max-height:220px;overflow-y:auto}
+#maplist div{padding:3px 6px;border-radius:3px;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
+#maplist div:hover{background:#30353f}#maplist div.cur{background:var(--accent2)}
+#maplist small{color:var(--dim)}
+#palWrap{position:relative;height:300px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;background:#111}
+#palSpacer{position:absolute;left:0;top:0;width:1px}
+#palette{position:sticky;top:0;left:0;display:block;image-rendering:pixelated;cursor:pointer}
+#tilePreview{width:64px;height:64px;image-rendering:pixelated;border:1px solid var(--line);background:#111}
+#minimap{width:100%;image-rendering:pixelated;border:1px solid var(--line);cursor:pointer;background:#000;display:block}
+.note{color:var(--dim);font-size:12px;margin:4px 0}
+.warn{color:var(--warn)}
+label.chk{display:flex;gap:6px;align-items:center;cursor:pointer;margin:2px 0}
+#plTable div{display:flex;align-items:center;gap:6px;padding:2px 4px;border-radius:3px;cursor:pointer}
+#plTable div.cur{background:var(--accent2)}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;border:1px solid #000}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0;min-width:340px;max-width:560px}
+dialog::backdrop{background:rgba(0,0,0,.55)}
+dialog h2{margin:0;padding:10px 14px;font-size:15px;border-bottom:1px solid var(--line)}
+dialog .dbody{padding:12px 14px}
+dialog .dbody .row{margin:6px 0}
+dialog .dbody label{min-width:84px;color:var(--dim)}
+dialog .dfoot{display:flex;justify-content:flex-end;gap:6px;padding:10px 14px;border-top:1px solid var(--line)}
+dialog ul{margin:6px 0;padding-left:18px}
+#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:15px;text-align:center;pointer-events:none}
+kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-size:11px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="menubar">
+    <span class="title">IOP 맵 에디터</span>
+    <button id="bNew" title="새 맵 (기존 맵의 테마·타일 사용)">새 맵</button>
+    <button id="bSave" title="저장 (Ctrl+S, 기존 파일은 .bak 백업)" disabled>저장</button>
+    <button id="bSaveAs" disabled>다른 이름으로 저장</button>
+    <span class="sep"></span>
+    <button id="bUndo" title="실행 취소 (Ctrl+Z)" disabled>↶ 취소</button>
+    <button id="bRedo" title="다시 실행 (Ctrl+Y)" disabled>↷ 다시</button>
+    <span class="sep"></span>
+    <button id="bZoomOut" title="축소 (-)">－</button>
+    <span id="zoomLbl">16</span>
+    <button id="bZoomIn" title="확대 (+)">＋</button>
+    <button id="bFit" title="맵 전체 보기">전체</button>
+    <span class="sep"></span>
+    <button id="bProps" disabled>맵 속성</button>
+    <button id="bCheck" disabled title="시작 위치 주변 검사">시작 위치 검사</button>
+    <span class="sep"></span>
+    <button id="bHelp">도움말</button>
+  </div>
+
+  <div id="side">
+    <div class="group" id="gMaps"><h3>맵 목록 (map/multi)</h3><div class="body">
+      <div class="row"><button id="bRefreshMaps">새로고침</button><small id="mapsFolder" class="note"></small></div>
+      <div id="maplist"></div>
+    </div></div>
+
+    <div class="group" id="gTools"><h3>도구</h3><div class="body">
+      <div class="row tools" id="toolBtns">
+        <button data-tool="tile" title="타일 칠하기 (B)">타일</button>
+        <button data-tool="erase" title="평지 타일로 지우기 (E)">지우기</button>
+        <button data-tool="pick" title="스포이드: 지도의 타일 선택 (I, 우클릭)">스포이드</button>
+        <button data-tool="high" title="고지대 칠하기 (H)">고지대</button>
+        <button data-tool="low" title="고지대 표시 지우기 (Shift+H)">고지대 해제</button>
+        <button data-tool="res" title="자원 추가/삭제 (R, 우클릭 삭제)">자원</button>
+        <button data-tool="start" title="시작 위치 이동 (P)">시작 위치</button>
+        <button data-tool="select" title="영역 선택 (S)">선택</button>
+        <button data-tool="pan" title="화면 이동 (Space 또는 가운데 버튼 드래그)">이동</button>
+      </div>
+      <div class="row"><span class="note" id="toolHint"></span></div>
+    </div></div>
+
+    <div class="group" id="gBrush"><h3>브러시</h3><div class="body">
+      <div class="row"><span>크기</span><input id="brushSize" type="range" min="1" max="15" value="1" style="flex:1"><b id="brushSizeLbl">1</b></div>
+      <div class="row" id="shapeBtns"><button data-shape="square" class="on">사각형</button><button data-shape="circle">원형</button></div>
+    </div></div>
+
+    <div class="group" id="gSel"><h3>선택 영역</h3><div class="body">
+      <div class="row"><span id="selInfo" class="note">선택 도구로 영역을 드래그하세요.</span></div>
+      <div class="row">
+        <button id="selCopy" disabled title="Ctrl+C">복사</button>
+        <button id="selPaste" disabled title="Ctrl+V: 클릭한 곳이 왼쪽 위">붙여넣기</button>
+        <button id="selFill" disabled>현재 타일로 채우기</button>
+      </div>
+      <div class="row">
+        <button id="selFlat" disabled>평지로</button>
+        <button id="selHigh" disabled>고지대 지정</button>
+        <button id="selLow" disabled>고지대 해제</button>
+      </div>
+      <div class="row">
+        <button id="selDelRes" disabled>자원 삭제</button>
+        <button id="selDelObj" disabled>장식 삭제</button>
+      </div>
+    </div></div>
+
+    <div class="group" id="gTile"><h3>타일 팔레트</h3><div class="body">
+      <div class="row">
+        <select id="palFilter" style="flex:1">
+          <option value="all">전체</option><option value="일반">일반</option><option value="언덕">언덕</option>
+          <option value="입구">입구</option><option value="미분류">미분류</option><option value="used">이 맵에서 사용 중</option>
+        </select>
+        <label class="chk" title="고지대 표시용으로 복제된 타일 숨김"><input type="checkbox" id="palHideHigh" checked>복제 숨김</label>
+      </div>
+      <div id="palWrap"><div id="palSpacer"></div><canvas id="palette"></canvas></div>
+      <div class="row" style="margin-top:6px">
+        <canvas id="tilePreview" width="32" height="32"></canvas>
+        <div style="flex:1">
+          <div id="tileInfo" class="note">타일 없음</div>
+          <div class="row"><span class="note">분류</span><select id="tileCat"><option>일반</option><option>언덕</option><option>입구</option><option>미분류</option></select></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <div id="stage"><canvas id="cv"></canvas><div id="empty">왼쪽 맵 목록에서 맵을 열거나 [새 맵]을 누르세요.</div></div>
+
+  <div id="right">
+    <div class="group"><h3>미니맵</h3><div class="body" id="minimapBox"><canvas id="minimap" width="128" height="128"></canvas></div></div>
+
+    <div class="group" id="gLayers"><h3>표시</h3><div class="body">
+      <label class="chk"><input type="checkbox" id="lyRes" checked>자원 (청록 ◆)</label>
+      <label class="chk"><input type="checkbox" id="lyStart" checked>시작 위치</label>
+      <label class="chk"><input type="checkbox" id="lyHigh" checked>고지대 (자주색)</label>
+      <label class="chk"><input type="checkbox" id="lyObj" checked>장식 (나무 등)</label>
+      <label class="chk"><input type="checkbox" id="lyGrid">격자</label>
+      <label class="chk"><input type="checkbox" id="lyEdge" checked>맵 가장자리</label>
+    </div></div>
+
+    <div class="group" id="gStart"><h3>시작 위치</h3><div class="body">
+      <div id="plTable"></div>
+      <div class="note">번호를 고른 뒤 [시작 위치] 도구로 지도를 클릭하면 이동합니다.</div>
+    </div></div>
+
+    <div class="group" id="gRes"><h3>자원</h3><div class="body">
+      <div class="row">배치된 자원 <b id="resCount">0</b> / 1000</div>
+      <div class="note">IOP 맵 파일은 자원의 <b>위치만</b> 저장합니다. 게임은 자원을 만들 때 매장량을 맵에서 읽지 않고 자원 종류의 기본값을 쓰므로, 자원별 매장량은 이 에디터에서 바꿀 수 없습니다.</div>
+    </div></div>
+
+    <div class="group"><h3>맵 정보</h3><div class="body" id="mapInfo"><span class="note">열린 맵 없음</span></div></div>
+  </div>
+
+  <div id="status">
+    <span>맵 <b id="stMap">-</b></span>
+    <span>칸 <b id="stCell">-</b></span>
+    <span>타일 <b id="stTile">-</b></span>
+    <span>도구 <b id="stTool">-</b></span>
+    <span id="stMsg"></span>
+  </div>
+</div>
+
+<dialog id="dlgNew"><h2>새 맵</h2><div class="dbody">
+  <div class="note">기존 맵의 테마·타일 세트를 그대로 쓰고, 가장 많이 쓰인 평지 타일로 채운 빈 맵을 만듭니다. 자원과 장식은 비워집니다.</div>
+  <div class="row"><label>기본 맵</label><select id="nBase" style="flex:1"></select></div>
+  <div class="row"><label>크기</label>
+    <select id="nSize"><option value="64">64 × 64</option><option value="96">96 × 96</option><option value="100x128">100 × 128</option><option value="120">120 × 120</option><option value="128" selected>128 × 128</option><option value="custom">직접 입력</option></select>
+    <input id="nW" type="number" min="32" max="128" value="128" hidden> <input id="nH" type="number" min="32" max="128" value="128" hidden>
+  </div>
+  <div class="row"><label>인원</label><select id="nPl"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+  <div class="note">설치된 멀티 맵은 96~128칸입니다. 그보다 작은 크기는 게임에서 확인되지 않았습니다.</div>
+</div><div class="dfoot"><button value="cancel" onclick="this.closest('dialog').close()">취소</button><button id="nOk" class="on">만들기</button></div></dialog>
+
+<dialog id="dlgProps"><h2>맵 속성</h2><div class="dbody">
+  <div class="row"><label>파일</label><span id="pName"></span></div>
+  <div class="row"><label>테마</label><span id="pTs"></span><span class="note">(타일 그림이 테마에 묶여 있어 바꿀 수 없음)</span></div>
+  <div class="row"><label>크기</label><span id="pSize"></span></div>
+  <div class="row"><label>형식</label><span id="pVer"></span></div>
+  <div class="row"><label>인원</label><select id="pPl"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+  <div class="note warn">인원을 바꾸면 시작 위치가 추가되거나 마지막 번호부터 제거됩니다. 인원 변경은 게임에서 아직 확인하지 않았습니다.</div>
+</div><div class="dfoot"><button onclick="this.closest('dialog').close()">취소</button><button id="pOk" class="on">적용</button></div></dialog>
+
+<dialog id="dlgSaveAs"><h2>다른 이름으로 저장</h2><div class="dbody">
+  <div class="row"><label>파일 이름</label><input id="sName" style="flex:1" placeholder="mymap.map"></div>
+  <div class="note">map/multi 폴더에 저장됩니다. 대전하려면 같은 파일을 상대 PC의 map/multi에도 복사하세요.</div>
+</div><div class="dfoot"><button onclick="this.closest('dialog').close()">취소</button><button id="sOk" class="on">저장</button></div></dialog>
+
+<dialog id="dlgMsg"><h2 id="mTitle">알림</h2><div class="dbody" id="mBody"></div>
+<div class="dfoot"><button id="mNo" hidden>취소</button><button id="mOk" class="on">확인</button></div></dialog>
+
+<script>
+'use strict';
+const TOKEN='__IOP_TOKEN__';
+const TILE=1026, HIGH=0x20, MAXUNDO=100;
+const $=id=>document.getElementById(id);
+
+// ---------- server ----------
+async function api(method,path,body){
+  const r=await fetch(path,{method,headers:{'X-IOP-Token':TOKEN,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
+  let data={};try{data=await r.json()}catch(e){}
+  if(!r.ok){const e=new Error(data.error||('HTTP '+r.status));e.status=r.status;e.data=data;throw e}
+  return data;
+}
+function fromB64(s){const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function toB64(u){let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+
+// ---------- state ----------
+let M=null;                 // open map
+let tool='tile', brush=1, shape='square', zoom=16, ox=0, oy=0;
+let curTile=0, curStart=0, sel=null, clip=null, pasting=false;
+let undoStack=[], redoStack=[], dirty=false, maps=[];
+let tileCache=new Map(), keyIndex=null;
+
+function flags(id){return M.tiles[id*TILE]|M.tiles[id*TILE+1]<<8}
+function isHighTile(id){return (flags(id)&HIGH)!==0}
+function isGround(id){const f=flags(id);return (f&0xf003)!==0&&(f&0x81c)===0}
+function gi(x,y){return x*M.H+y}
+function inside(x,y){return x>=0&&y>=0&&x<M.W&&y<M.H}
+function center(id){return M.tiles[id*TILE+2+16*32+16]}
+
+function loadDoc(d){
+  const tiles=fromB64(d.tiles);
+  M={name:d.name||'',hash:d.hash,version:d.version,theme:d.theme,themeName:d.themeName,players:d.players,
+     W:d.width,H:d.height,starts:d.starts.map(p=>[p[0],p[1]]),resources:d.resources.map(p=>[p[0],p[1]]),
+     objects:fromB64(d.objects),fixed:d.fixed,extra:d.extra,
+     grid:new Uint16Array(fromB64(d.grid).buffer.slice(0)),
+     tiles:tiles,tileCount:d.tileCount,minimap:fromB64(d.minimap),
+     palette:fromB64(d.palette),categories:d.categories.slice()};
+  tileCache=new Map();keyIndex=null;undoStack=[];redoStack=[];dirty=false;sel=null;clip=null;pasting=false;
+  curStart=0;curTile=mostUsedGround();
+  $('empty').style.display='none';
+  ['bSave','bSaveAs','bProps','bCheck'].forEach(id=>$(id).disabled=false);
+  fit();refreshAll();
+}
+function mostUsedGround(){
+  const count=new Map();for(const id of M.grid)count.set(id,(count.get(id)||0)+1);
+  const order=[...count.entries()].sort((a,b)=>b[1]-a[1]);
+  for(const [id] of order)if(isGround(id))return id;
+  for(let id=0;id<M.tileCount;id++)if(isGround(id))return id;
+  return order.length?order[0][0]:0;
+}
+
+// ---------- tiles ----------
+function tileCanvas(id){
+  let c=tileCache.get(id);if(c)return c;
+  c=document.createElement('canvas');c.width=c.height=32;
+  const ctx=c.getContext('2d'),img=ctx.createImageData(32,32),p=M.palette,base=id*TILE+2;
+  for(let i=0;i<1024;i++){const v=M.tiles[base+i]*3;img.data[i*4]=p[v];img.data[i*4+1]=p[v+1];img.data[i*4+2]=p[v+2];img.data[i*4+3]=255}
+  ctx.putImageData(img,0,0);tileCache.set(id,c);return c;
+}
+function tileKey(id){let s='';const b=id*TILE;for(let i=0;i<TILE;i+=4)s+=String.fromCharCode(M.tiles[b+i]|M.tiles[b+i+1]<<8,M.tiles[b+i+2]|M.tiles[b+i+3]<<8);return s}
+function ensureIndex(){if(keyIndex)return;keyIndex=new Map();for(let id=0;id<M.tileCount;id++){const k=tileKey(id);if(!keyIndex.has(k))keyIndex.set(k,id)}}
+function addTile(bytes,category){
+  if(M.tileCount>=30000)throw new Error('타일 수가 게임 한도(30,000)에 도달했습니다.');
+  if((M.tileCount+1)*TILE>M.tiles.length){const t=new Uint8Array(Math.max(M.tiles.length*2,(M.tileCount+64)*TILE));t.set(M.tiles);M.tiles=t}
+  M.tiles.set(bytes,M.tileCount*TILE);const id=M.tileCount++;M.categories[id]=category||'미분류';
+  keyIndex.set(tileKey(id),id);return id;
+}
+function heightVariant(id,high){
+  const f=flags(id),want=high?(f|HIGH):(f&~HIGH);if(want===f)return id;
+  ensureIndex();const b=M.tiles.slice(id*TILE,id*TILE+TILE);b[0]=want&255;b[1]=want>>8;
+  let s='';for(let i=0;i<TILE;i+=4)s+=String.fromCharCode(b[i]|b[i+1]<<8,b[i+2]|b[i+3]<<8);
+  const found=keyIndex.get(s);return found!==undefined?found:addTile(b,M.categories[id]);
+}
+
+// ---------- edits ----------
+function setCell(x,y,id){if(!inside(x,y))return false;const i=gi(x,y);if(M.grid[i]===id)return false;M.grid[i]=id;M.minimap[y*M.W+x]=center(id);return true}
+function paintTile(x,y,id){
+  // keep the cell's high-ground mark when painting a new graphic
+  if(isHighTile(M.grid[gi(x,y)])&&!isHighTile(id))id=heightVariant(id,true);
+  return setCell(x,y,id);
+}
+function setHigh(x,y,high){if(!inside(x,y))return false;return setCell(x,y,heightVariant(M.grid[gi(x,y)],high))}
+function cellsUnder(cx,cy){
+  const out=[],r=(brush-1)/2,lo=-Math.floor(r),hi=Math.ceil(r);
+  for(let dx=lo;dx<=hi;dx++)for(let dy=lo;dy<=hi;dy++){
+    if(shape==='circle'&&brush>2&&(dx*dx+dy*dy)>(r+.35)*(r+.35))continue;
+    const x=cx+dx,y=cy+dy;if(inside(x,y))out.push([x,y]);
+  }
+  return out;
+}
+function snapshot(){return{grid:M.grid.slice(),minimap:M.minimap.slice(),starts:M.starts.map(p=>p.slice()),resources:M.resources.map(p=>p.slice()),objects:M.objects.slice(),tileCount:M.tileCount,players:M.players}}
+function restore(s){M.grid=s.grid.slice();M.minimap=s.minimap.slice();M.starts=s.starts.map(p=>p.slice());M.resources=s.resources.map(p=>p.slice());M.objects=s.objects.slice();M.tileCount=s.tileCount;M.players=s.players;keyIndex=null;if(curStart>=M.players)curStart=0}
+function checkpoint(){undoStack.push(snapshot());if(undoStack.length>MAXUNDO)undoStack.shift();redoStack=[];dirty=true;updateButtons()}
+function undo(){if(!undoStack.length)return;redoStack.push(snapshot());restore(undoStack.pop());dirty=true;refreshAll();msg('실행 취소')}
+function redo(){if(!redoStack.length)return;undoStack.push(snapshot());restore(redoStack.pop());dirty=true;refreshAll();msg('다시 실행')}
+
+function resourceAt(x,y,radius=0){return M.resources.findIndex(p=>Math.abs(p[0]-x)<=radius&&Math.abs(p[1]-y)<=radius)}
+function objectsIn(x1,y1,x2,y2){const keep=[],drop=[];for(let i=0;i<M.objects.length;i+=8){const x=M.objects[i]|M.objects[i+1]<<8,y=M.objects[i+2]|M.objects[i+3]<<8;((x>=x1&&x<=x2&&y>=y1&&y<=y2)?drop:keep).push(M.objects.subarray(i,i+8))}return{keep,drop}}
+
+// ---------- view ----------
+const stage=$('stage'),cv=$('cv'),ctx=cv.getContext('2d');
+function resize(){cv.width=stage.clientWidth;cv.height=stage.clientHeight;draw()}
+function fit(){if(!M)return;zoom=Math.max(2,Math.min(64,Math.floor(Math.min(stage.clientWidth/M.W,stage.clientHeight/M.H))));ox=Math.round((stage.clientWidth-M.W*zoom)/2);oy=Math.round((stage.clientHeight-M.H*zoom)/2);$('zoomLbl').textContent=zoom;draw()}
+function setZoom(z,px,py){
+  if(!M)return;z=Math.max(2,Math.min(64,z));px=px??cv.width/2;py=py??cv.height/2;
+  const tx=(px-ox)/zoom,ty=(py-oy)/zoom;zoom=z;ox=Math.round(px-tx*zoom);oy=Math.round(py-ty*zoom);$('zoomLbl').textContent=zoom;draw();
+}
+function cellAt(ev){const r=cv.getBoundingClientRect();return[Math.floor((ev.clientX-r.left-ox)/zoom),Math.floor((ev.clientY-r.top-oy)/zoom)]}
+let hover=null,dragRect=null;
+function draw(){
+  ctx.fillStyle='#0d0e11';ctx.fillRect(0,0,cv.width,cv.height);
+  if(!M)return;
+  ctx.imageSmoothingEnabled=false;
+  const x0=Math.max(0,Math.floor(-ox/zoom)),y0=Math.max(0,Math.floor(-oy/zoom));
+  const x1=Math.min(M.W,Math.ceil((cv.width-ox)/zoom)),y1=Math.min(M.H,Math.ceil((cv.height-oy)/zoom));
+  const showHigh=$('lyHigh').checked;
+  for(let x=x0;x<x1;x++)for(let y=y0;y<y1;y++){
+    const id=M.grid[gi(x,y)],px=ox+x*zoom,py=oy+y*zoom;
+    ctx.drawImage(tileCanvas(id),px,py,zoom,zoom);
+    if(showHigh&&isHighTile(id)){ctx.fillStyle='rgba(190,70,255,.28)';ctx.fillRect(px,py,zoom,zoom)}
+  }
+  if(showHigh){ // outline high-ground regions
+    ctx.strokeStyle='#d58bff';ctx.lineWidth=Math.max(1,zoom/10);ctx.beginPath();
+    const h=(x,y)=>inside(x,y)&&isHighTile(M.grid[gi(x,y)]);
+    for(let x=x0;x<x1;x++)for(let y=y0;y<y1;y++)if(h(x,y)){
+      const px=ox+x*zoom,py=oy+y*zoom;
+      if(!h(x-1,y)){ctx.moveTo(px,py);ctx.lineTo(px,py+zoom)}
+      if(!h(x+1,y)){ctx.moveTo(px+zoom,py);ctx.lineTo(px+zoom,py+zoom)}
+      if(!h(x,y-1)){ctx.moveTo(px,py);ctx.lineTo(px+zoom,py)}
+      if(!h(x,y+1)){ctx.moveTo(px,py+zoom);ctx.lineTo(px+zoom,py+zoom)}
+    }
+    ctx.stroke();
+  }
+  if($('lyGrid').checked&&zoom>=6){
+    ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.beginPath();
+    for(let x=x0;x<=x1;x++){const px=ox+x*zoom+.5;ctx.moveTo(px,oy+y0*zoom);ctx.lineTo(px,oy+y1*zoom)}
+    for(let y=y0;y<=y1;y++){const py=oy+y*zoom+.5;ctx.moveTo(ox+x0*zoom,py);ctx.lineTo(ox+x1*zoom,py)}
+    ctx.stroke();
+  }
+  if($('lyObj').checked){
+    ctx.fillStyle='#5fe07a';const s=Math.max(2,zoom/4);
+    for(let i=0;i<M.objects.length;i+=8){const x=M.objects[i]|M.objects[i+1]<<8,y=M.objects[i+2]|M.objects[i+3]<<8;
+      if(x>=x0&&x<x1&&y>=y0&&y<y1)ctx.fillRect(ox+(x+.5)*zoom-s/2,oy+(y+.5)*zoom-s/2,s,s)}
+  }
+  if($('lyRes').checked){
+    const s=Math.max(3,zoom*.45);ctx.lineWidth=1;
+    for(const [x,y] of M.resources){if(x<x0-1||x>x1||y<y0-1||y>y1)continue;
+      const cx=ox+(x+.5)*zoom,cy=oy+(y+.5)*zoom;
+      ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();
+      ctx.fillStyle='#21fff0';ctx.fill();ctx.strokeStyle='#003b38';ctx.stroke()}
+  }
+  if($('lyStart').checked){
+    const r=Math.max(8,zoom*.7);ctx.font=`bold ${Math.round(r*1.1)}px Arial`;ctx.textAlign='center';ctx.textBaseline='middle';
+    M.starts.forEach(([x,y],i)=>{const cx=ox+(x+.5)*zoom,cy=oy+(y+.5)*zoom;
+      ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fillStyle=i===curStart&&tool==='start'?'#ffffff':'#ffdf45';ctx.fill();
+      ctx.lineWidth=2;ctx.strokeStyle='#000';ctx.stroke();ctx.fillStyle='#000';ctx.fillText(i+1,cx,cy+1)});
+  }
+  if($('lyEdge').checked){ctx.strokeStyle='#ff5a5a';ctx.lineWidth=2;ctx.strokeRect(ox-1,oy-1,M.W*zoom+2,M.H*zoom+2)}
+  const rect=dragRect||sel;
+  if(rect){const [a,b,c,d]=norm(rect);ctx.setLineDash([6,4]);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+a*zoom,oy+b*zoom,(c-a+1)*zoom,(d-b+1)*zoom);ctx.setLineDash([])}
+  if(hover&&inside(...hover)){
+    if(pasting&&clip){ctx.globalAlpha=.6;for(let dx=0;dx<clip.w;dx++)for(let dy=0;dy<clip.h;dy++){const x=hover[0]+dx,y=hover[1]+dy;if(inside(x,y))ctx.drawImage(tileCanvas(clip.ids[dx*clip.h+dy]),ox+x*zoom,oy+y*zoom,zoom,zoom)}ctx.globalAlpha=1;ctx.strokeStyle='#4f8cff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,clip.w*zoom,clip.h*zoom)}
+    else if(['tile','erase','high','low'].includes(tool)){ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1;for(const [x,y] of cellsUnder(...hover))ctx.strokeRect(ox+x*zoom+.5,oy+y*zoom+.5,zoom-1,zoom-1)}
+    else{ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,zoom,zoom)}
+  }
+  drawMinimapView();
+}
+function norm(r){return[Math.min(r[0],r[2]),Math.min(r[1],r[3]),Math.max(r[0],r[2]),Math.max(r[1],r[3])]}
+
+// ---------- minimap ----------
+const mm=$('minimap'),mmx=mm.getContext('2d');let mmImage=null;
+function renderMinimap(){
+  if(!M)return;mm.width=M.W;mm.height=M.H;const img=mmx.createImageData(M.W,M.H),p=M.palette;
+  // Colour from each cell's own tile graphic; the file's embedded minimap
+  // bytes do not index the terrain palette.
+  for(let x=0;x<M.W;x++)for(let y=0;y<M.H;y++){const i=y*M.W+x,v=center(M.grid[gi(x,y)])*3;img.data[i*4]=p[v];img.data[i*4+1]=p[v+1];img.data[i*4+2]=p[v+2];img.data[i*4+3]=255}
+  mmImage=img;drawMinimapView();
+}
+function drawMinimapView(){
+  if(!M||!mmImage)return;mmx.putImageData(mmImage,0,0);
+  mmx.fillStyle='#21fff0';for(const [x,y] of M.resources)mmx.fillRect(x-1,y-1,2,2);
+  mmx.fillStyle='#ffdf45';for(const [x,y] of M.starts)mmx.fillRect(x-2,y-2,4,4);
+  mmx.strokeStyle='#fff';mmx.lineWidth=1;mmx.strokeRect(-ox/zoom,-oy/zoom,cv.width/zoom,cv.height/zoom);
+}
+function minimapGo(ev){const r=mm.getBoundingClientRect(),x=(ev.clientX-r.left)/r.width*M.W,y=(ev.clientY-r.top)/r.height*M.H;ox=Math.round(cv.width/2-x*zoom);oy=Math.round(cv.height/2-y*zoom);draw()}
+mm.addEventListener('mousedown',e=>{if(!M)return;minimapGo(e);const mv=ev=>minimapGo(ev),up=()=>{removeEventListener('mousemove',mv);removeEventListener('mouseup',up)};addEventListener('mousemove',mv);addEventListener('mouseup',up)});
+
+// ---------- palette ----------
+const PAL_COLS=7,PAL_CELL=34;let palList=[];
+function rebuildPalette(){
+  if(!M){palList=[];return}
+  const f=$('palFilter').value,hide=$('palHideHigh').checked;let used=null;
+  if(f==='used'){used=new Set(M.grid)}
+  palList=[];for(let id=0;id<M.tileCount;id++){
+    if(hide&&isHighTile(id)&&!(used&&used.has(id)))continue;
+    if(f==='used'?!used.has(id):(f!=='all'&&M.categories[id]!==f))continue;palList.push(id)}
+  $('palSpacer').style.height=Math.ceil(palList.length/PAL_COLS)*PAL_CELL+'px';drawPalette();
+}
+function drawPalette(){
+  const wrap=$('palWrap'),c=$('palette'),g=c.getContext('2d');c.width=PAL_COLS*PAL_CELL;c.height=wrap.clientHeight;
+  g.fillStyle='#111';g.fillRect(0,0,c.width,c.height);if(!M)return;g.imageSmoothingEnabled=false;
+  const top=wrap.scrollTop,row0=Math.floor(top/PAL_CELL),rows=Math.ceil(c.height/PAL_CELL)+1;
+  c.style.top='0px';
+  for(let r=row0;r<row0+rows;r++)for(let col=0;col<PAL_COLS;col++){
+    const k=r*PAL_COLS+col;if(k>=palList.length)break;const id=palList[k],x=col*PAL_CELL+1,y=r*PAL_CELL-top+1;
+    g.drawImage(tileCanvas(id),x,y,32,32);
+    const cat=M.categories[id];if(cat!=='미분류'){g.fillStyle=cat==='언덕'?'#ff9f43':cat==='입구'?'#54a0ff':'#7bed9f';g.fillRect(x,y+27,6,5)}
+    if(isHighTile(id)){g.fillStyle='#d58bff';g.fillRect(x+26,y+27,6,5)}
+    if(id===curTile){g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(x-1,y-1,34,34)}
+  }
+}
+$('palWrap').addEventListener('scroll',drawPalette);
+$('palette').addEventListener('click',e=>{const r=$('palette').getBoundingClientRect(),col=Math.floor((e.clientX-r.left)/PAL_CELL),row=Math.floor((e.clientY-r.top+$('palWrap').scrollTop)/PAL_CELL),k=row*PAL_COLS+col;if(col<PAL_COLS&&palList[k]!==undefined){curTile=palList[k];if(!['tile'].includes(tool))setTool('tile');updateTileInfo();drawPalette()}});
+$('palFilter').onchange=rebuildPalette;$('palHideHigh').onchange=rebuildPalette;
+function updateTileInfo(){
+  const c=$('tilePreview').getContext('2d');c.clearRect(0,0,32,32);if(!M)return;c.drawImage(tileCanvas(curTile),0,0);
+  const f=flags(curTile);$('tileInfo').textContent=`#${curTile} · ${isGround(curTile)?'지상형':'장애물형'} · 속성 ${f.toString(16).padStart(4,'0')}${isHighTile(curTile)?' · 고지대':''}`;
+  $('tileCat').value=M.categories[curTile];
+}
+$('tileCat').onchange=async()=>{
+  if(!M)return;const cat=$('tileCat').value,id=curTile;
+  try{await api('PUT','/api/category',{theme:M.theme,tile:toB64(M.tiles.subarray(id*TILE,id*TILE+TILE)),category:cat});M.categories[id]=cat;rebuildPalette();msg(`타일 #${id} 분류: ${cat}`,'ok')}
+  catch(e){msg(e.message,'bad');$('tileCat').value=M.categories[id]}
+};
+
+// ---------- side panels ----------
+function refreshPlayers(){
+  const t=$('plTable');t.innerHTML='';if(!M)return;
+  M.starts.forEach(([x,y],i)=>{const d=document.createElement('div');d.className=i===curStart?'cur':'';d.innerHTML=`<span class="dot" style="background:#ffdf45"></span><b>P${i+1}</b><span class="note">(${x}, ${y})</span>`;d.onclick=()=>{curStart=i;setTool('start');refreshPlayers();draw()};t.appendChild(d)});
+}
+function refreshInfo(){
+  if(!M){$('mapInfo').innerHTML='<span class="note">열린 맵 없음</span>';return}
+  $('mapInfo').innerHTML=`${esc(M.name||'(저장 안 됨)')}<br><span class="note">${M.themeName} · ${M.W}×${M.H} · ${M.players}명 · v${M.version}<br>타일 ${M.tileCount}종 · 장식 ${M.objects.length/8}개</span>`;
+  $('resCount').textContent=M.resources.length;$('stMap').textContent=(M.name||'새 맵')+(dirty?' *':'');
+}
+function refreshAll(){renderMinimap();rebuildPalette();updateTileInfo();refreshPlayers();refreshInfo();updateButtons();updateSel();draw()}
+function updateButtons(){$('bUndo').disabled=!undoStack.length;$('bRedo').disabled=!redoStack.length;if(M)$('stMap').textContent=(M.name||'새 맵')+(dirty?' *':'')}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+let msgTimer=null;function msg(t,kind=''){const m=$('stMsg');m.textContent=t;m.className=kind;clearTimeout(msgTimer);msgTimer=setTimeout(()=>{m.textContent=''},6000)}
+
+const HINTS={tile:'좌클릭/드래그로 칠하기, 우클릭으로 타일 집기',erase:'가장 많이 쓰인 평지 타일로 지웁니다',pick:'지도의 타일을 클릭하면 팔레트에서 선택됩니다',
+ high:'시야가 분리될 고지대 내부를 칠하세요 (A·B 같은 맵 필요)',low:'잘못 칠한 고지대 표시를 지웁니다',res:'좌클릭 추가, 우클릭 또는 같은 칸 클릭으로 삭제',
+ start:'오른쪽 목록에서 번호를 고르고 지도를 클릭',select:'드래그로 영역 선택 후 왼쪽 버튼 사용',pan:'드래그로 화면 이동'};
+const TOOL_NAMES={tile:'타일',erase:'지우기',pick:'스포이드',high:'고지대',low:'고지대 해제',res:'자원',start:'시작 위치',select:'선택',pan:'이동'};
+function setTool(t){tool=t;pasting=false;document.querySelectorAll('#toolBtns button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));$('toolHint').textContent=HINTS[t]||'';$('stTool').textContent=TOOL_NAMES[t];stage.style.cursor=t==='pan'?'grab':'crosshair';draw()}
+document.querySelectorAll('#toolBtns button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+$('brushSize').oninput=e=>{brush=+e.target.value;$('brushSizeLbl').textContent=brush;draw()};
+document.querySelectorAll('#shapeBtns button').forEach(b=>b.onclick=()=>{shape=b.dataset.shape;document.querySelectorAll('#shapeBtns button').forEach(x=>x.classList.toggle('on',x===b));draw()});
+['lyRes','lyStart','lyHigh','lyObj','lyGrid','lyEdge'].forEach(id=>$(id).onchange=draw);
+
+// ---------- selection ----------
+function updateSel(){
+  const on=!!(M&&sel);['selCopy','selFill','selFlat','selHigh','selLow','selDelRes','selDelObj'].forEach(id=>$(id).disabled=!on);$('selPaste').disabled=!(M&&clip);
+  if(on){const [a,b,c,d]=norm(sel);$('selInfo').textContent=`(${a},${b}) ~ (${c},${d}) · ${c-a+1}×${d-b+1}칸`}
+  else $('selInfo').textContent=clip?`복사됨: ${clip.w}×${clip.h}칸`:'선택 도구로 영역을 드래그하세요.';
+}
+function eachSel(fn){const [a,b,c,d]=norm(sel);for(let x=a;x<=c;x++)for(let y=b;y<=d;y++)fn(x,y)}
+function copySel(){if(!sel)return;const [a,b,c,d]=norm(sel),w=c-a+1,h=d-b+1,ids=[];for(let x=a;x<=c;x++)for(let y=b;y<=d;y++)ids.push(M.grid[gi(x,y)]);clip={w,h,ids};updateSel();msg(`${w}×${h}칸 복사 (고지대 표시 포함). 붙여넣기 후 클릭한 곳이 왼쪽 위`,'ok')}
+function startPaste(){if(!clip)return;pasting=true;msg('붙여넣을 위치를 클릭하세요. Esc로 취소');draw()}
+function pasteAt(x,y){checkpoint();let n=0;for(let dx=0;dx<clip.w;dx++)for(let dy=0;dy<clip.h;dy++)if(setCell(x+dx,y+dy,clip.ids[dx*clip.h+dy]))n++;renderMinimap();refreshInfo();draw();msg(`${n}칸 붙여넣기`)}
+$('selCopy').onclick=copySel;$('selPaste').onclick=startPaste;
+$('selFill').onclick=()=>{checkpoint();eachSel((x,y)=>paintTile(x,y,curTile));renderMinimap();draw()};
+$('selFlat').onclick=()=>{checkpoint();const g=mostUsedGround();eachSel((x,y)=>paintTile(x,y,g));renderMinimap();draw()};
+$('selHigh').onclick=()=>{try{checkpoint();eachSel((x,y)=>setHigh(x,y,true));refreshAll()}catch(e){msg(e.message,'bad')}};
+$('selLow').onclick=()=>{checkpoint();eachSel((x,y)=>setHigh(x,y,false));refreshAll()};
+$('selDelRes').onclick=()=>{const [a,b,c,d]=norm(sel);const before=M.resources.length;checkpoint();M.resources=M.resources.filter(([x,y])=>!(x>=a&&x<=c&&y>=b&&y<=d));refreshInfo();renderMinimap();draw();msg(`자원 ${before-M.resources.length}개 삭제`)};
+$('selDelObj').onclick=()=>{const [a,b,c,d]=norm(sel);const {keep,drop}=objectsIn(a,b,c,d);checkpoint();const o=new Uint8Array(keep.length*8);keep.forEach((r,i)=>o.set(r,i*8));M.objects=o;refreshInfo();draw();msg(`장식 ${drop.length}개 삭제`)};
+
+// ---------- mouse ----------
+let stroke=null,panDrag=null,spaceDown=false;
+function applyAt(x,y,right){
+  if(!inside(x,y))return false;
+  if(tool==='tile'){if(right){curTile=M.grid[gi(x,y)];updateTileInfo();drawPalette();return false}let ch=false;for(const [cx,cy] of cellsUnder(x,y))ch=paintTile(cx,cy,curTile)||ch;return ch}
+  if(tool==='erase'){const g=mostUsedGround();let ch=false;for(const [cx,cy] of cellsUnder(x,y))ch=paintTile(cx,cy,g)||ch;return ch}
+  if(tool==='high'||tool==='low'){let ch=false;for(const [cx,cy] of cellsUnder(x,y))ch=setHigh(cx,cy,tool==='high')||ch;return ch}
+  return false;
+}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('mousedown',e=>{
+  if(!M)return;const [x,y]=cellAt(e);
+  if(e.button===1||tool==='pan'||spaceDown){panDrag={sx:e.clientX,sy:e.clientY,ox,oy};stage.style.cursor='grabbing';e.preventDefault();return}
+  const right=e.button===2;
+  if(pasting&&clip){if(right){pasting=false;draw();return}if(inside(x,y))pasteAt(x,y);if(!e.shiftKey)pasting=false;return}
+  if(tool==='pick'||(right&&['erase','high','low'].includes(tool))){if(inside(x,y)){curTile=M.grid[gi(x,y)];updateTileInfo();drawPalette();msg(`타일 #${curTile} 선택`)}return}
+  if(tool==='res'){if(!inside(x,y))return;const i=resourceAt(x,y);checkpoint();
+    if(i>=0||right){const j=i>=0?i:resourceAt(x,y,1);if(j>=0){M.resources.splice(j,1);msg('자원 삭제')}else{undoStack.pop();msg('삭제할 자원이 없습니다','bad');updateButtons();return}}
+    else{if(M.resources.length>=1000){undoStack.pop();msg('자원은 최대 1,000개입니다','bad');return}M.resources.push([x,y]);msg(`자원 추가 (${x}, ${y})`)}
+    refreshInfo();renderMinimap();draw();return}
+  if(tool==='start'){if(!inside(x,y))return;if(right){const i=M.starts.findIndex(p=>p[0]===x&&p[1]===y);if(i>=0){curStart=i;refreshPlayers();draw()}return}
+    if(M.starts.some((p,i)=>i!==curStart&&p[0]===x&&p[1]===y)){msg('다른 시작 위치와 겹칩니다','bad');return}
+    checkpoint();M.starts[curStart]=[x,y];refreshPlayers();renderMinimap();draw();msg(`P${curStart+1} → (${x}, ${y})`);return}
+  if(tool==='select'){dragRect=[x,y,x,y].map((v,i)=>Math.max(0,Math.min(i%2?M.H-1:M.W-1,v)));draw();return}
+  checkpoint();stroke={changed:false};try{stroke.changed=applyAt(x,y,right)}catch(err){msg(err.message,'bad')}
+  if(right&&tool==='tile'){undoStack.pop();stroke=null;updateButtons()}
+  draw();
+});
+addEventListener('mousemove',e=>{
+  if(!M)return;
+  if(panDrag){ox=panDrag.ox+e.clientX-panDrag.sx;oy=panDrag.oy+e.clientY-panDrag.sy;draw();return}
+  if(e.target!==cv&&!stroke&&!dragRect)return;
+  const [x,y]=cellAt(e);hover=[x,y];
+  if(inside(x,y)){const id=M.grid[gi(x,y)];$('stCell').textContent=`${x}, ${y}`;$('stTile').textContent=`#${id} ${M.categories[id]}${isHighTile(id)?' · 고지대':''}${resourceAt(x,y)>=0?' · 자원':''}`}
+  else{$('stCell').textContent='-';$('stTile').textContent='-'}
+  if(stroke&&(e.buttons&1)){try{stroke.changed=applyAt(x,y,false)||stroke.changed}catch(err){msg(err.message,'bad')}}
+  if(dragRect){dragRect[2]=Math.max(0,Math.min(M.W-1,x));dragRect[3]=Math.max(0,Math.min(M.H-1,y))}
+  draw();
+});
+addEventListener('mouseup',()=>{
+  if(panDrag){panDrag=null;stage.style.cursor=tool==='pan'?'grab':'crosshair';return}
+  if(stroke){if(!stroke.changed){undoStack.pop();updateButtons()}else{renderMinimap();refreshInfo();if(['high','low'].includes(tool))rebuildPalette()}stroke=null}
+  if(dragRect){sel=dragRect;dragRect=null;updateSel();draw()}
+});
+cv.addEventListener('mouseleave',()=>{hover=null;draw()});
+cv.addEventListener('wheel',e=>{if(!M)return;e.preventDefault();const r=cv.getBoundingClientRect();const steps=[2,3,4,6,8,12,16,24,32,48,64];let i=steps.findIndex(s=>s>=zoom);if(i<0)i=steps.length-1;i=Math.max(0,Math.min(steps.length-1,i+(e.deltaY<0?1:-1)));setZoom(steps[i],e.clientX-r.left,e.clientY-r.top)},{passive:false});
+
+// ---------- keyboard ----------
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||document.querySelector('dialog[open]'))return;
+  const k=e.key.toLowerCase();
+  if(e.ctrlKey&&k==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
+  if(e.ctrlKey&&k==='y'){e.preventDefault();redo();return}
+  if(e.ctrlKey&&k==='s'){e.preventDefault();save(false);return}
+  if(e.ctrlKey&&k==='c'){if(sel){e.preventDefault();copySel()}return}
+  if(e.ctrlKey&&k==='v'){if(clip){e.preventDefault();startPaste()}return}
+  if(e.ctrlKey)return;
+  if(k===' '){spaceDown=true;stage.style.cursor='grab';e.preventDefault();return}
+  if(k==='escape'){pasting=false;sel=null;dragRect=null;updateSel();draw();return}
+  if(k==='delete'&&sel){$('selDelRes').click();return}
+  const map={b:'tile',e:'erase',i:'pick',r:'res',p:'start',s:'select'};
+  if(k==='h'){setTool(e.shiftKey?'low':'high');return}
+  if(map[k]){setTool(map[k]);return}
+  if(k==='+'||k==='='){setZoom(zoom*1.5|0||zoom+1);return}
+  if(k==='-'){setZoom(Math.max(2,zoom/1.5|0));return}
+  if(k==='['){$('brushSize').value=brush=Math.max(1,brush-1);$('brushSizeLbl').textContent=brush;draw()}
+  if(k===']'){$('brushSize').value=brush=Math.min(15,brush+1);$('brushSizeLbl').textContent=brush;draw()}
+});
+addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;stage.style.cursor=tool==='pan'?'grab':'crosshair'}});
+
+// ---------- dialogs ----------
+function dialog(title,html,{confirm=false,ok='확인'}={}){
+  return new Promise(res=>{const d=$('dlgMsg');$('mTitle').textContent=title;$('mBody').innerHTML=html;$('mNo').hidden=!confirm;$('mOk').textContent=ok;
+    $('mOk').onclick=()=>{d.close();res(true)};$('mNo').onclick=()=>{d.close();res(false)};d.onclose=()=>res(false);d.showModal()});
+}
+async function confirmDiscard(){return !dirty||await dialog('저장하지 않은 변경','저장하지 않은 변경이 있습니다. 버리고 계속할까요?',{confirm:true,ok:'버리기'})}
+
+// ---------- map list / open ----------
+async function loadMaps(){
+  try{const r=await api('GET','/api/maps');maps=r.maps;$('mapsFolder').textContent=r.folder;
+    const box=$('maplist');box.innerHTML='';
+    for(const m of maps){const d=document.createElement('div');if(M&&m.name===M.name)d.className='cur';
+      d.innerHTML=m.error?`<span>${esc(m.name)}</span><small class="warn">열 수 없음</small>`:`<span>${esc(m.name.replace(/\.map$/i,''))}</span><small>${m.width}×${m.height} · ${m.players}명 · ${m.themeName}</small>`;
+      d.title=m.error||m.name;d.onclick=()=>openMap(m.name);box.appendChild(d)}
+    const sel=$('nBase');sel.innerHTML='';for(const m of maps)if(!m.error){const o=document.createElement('option');o.value=m.name;o.textContent=`${m.name} (${m.themeName})`;sel.appendChild(o)}
+  }catch(e){msg(e.message,'bad');$('maplist').innerHTML=`<div class="note bad">${esc(e.message)}</div>`}
+}
+async function openMap(name){
+  if(!await confirmDiscard())return;
+  try{msg('여는 중…');loadDoc(await api('GET','/api/map?name='+encodeURIComponent(name)));msg(`${name} 열림`,'ok');loadMaps()}
+  catch(e){dialog('맵을 열 수 없습니다',esc(e.message))}
+}
+$('bRefreshMaps').onclick=loadMaps;
+
+// ---------- save ----------
+function payload(){
+  const gridBytes=new Uint8Array(M.grid.buffer.slice(0));
+  return{name:M.name,hash:M.hash,version:M.version,players:M.players,width:M.W,height:M.H,
+    starts:M.starts,resources:M.resources,objects:toB64(M.objects),fixed:M.fixed,extra:M.extra,
+    grid:toB64(gridBytes),tiles:toB64(M.tiles.subarray(0,M.tileCount*TILE)),minimap:toB64(M.minimap)};
+}
+async function putMap(name,overwrite){
+  const body=payload();body.name=M.name;
+  return api('PUT','/api/map?name='+encodeURIComponent(name)+(overwrite?'&overwrite=1':''),body);
+}
+async function save(asNew){
+  if(!M)return;
+  if(asNew||!M.name){$('sName').value=M.name||'';$('dlgSaveAs').showModal();$('sName').focus();return}
+  await doSave(M.name,true);
+}
+async function doSave(name,overwrite){
+  try{
+    msg('저장 중…');let r;
+    try{r=await putMap(name,overwrite)}
+    catch(e){if(e.status===409&&await dialog('덮어쓰기',`${esc(name)} 파일이 이미 있습니다. 덮어쓸까요? (기존 파일은 .bak으로 보관)`,{confirm:true,ok:'덮어쓰기'})){M.hash=null;r=await putMap(name,true)}else throw e}
+    M.name=r.name;M.hash=r.hash;dirty=false;refreshInfo();updateButtons();loadMaps();
+    msg(`${r.name} 저장${r.backup?' (백업 '+r.backup+')':''}`,'ok');
+    if(r.warnings&&r.warnings.length)dialog('저장됨 · 시작 위치 확인',`<p>맵은 저장했습니다. 게임에서 시작할 때 문제가 될 수 있는 곳입니다:</p><ul>${r.warnings.map(w=>'<li>'+esc(w)+'</li>').join('')}</ul>`);
+  }catch(e){if(e.message)dialog('저장하지 못했습니다',esc(e.message))}
+}
+$('bSave').onclick=()=>save(false);$('bSaveAs').onclick=()=>save(true);
+$('sOk').onclick=async()=>{let n=$('sName').value.trim();if(!n)return;if(!/\.map$/i.test(n))n+='.map';$('dlgSaveAs').close();await doSave(n,false)};
+$('sName').addEventListener('keydown',e=>{if(e.key==='Enter')$('sOk').click()});
+
+// ---------- new / props / check ----------
+$('bNew').onclick=async()=>{if(!maps.length)await loadMaps();if(!maps.some(m=>!m.error)){dialog('새 맵','기본으로 쓸 맵이 map/multi 폴더에 없습니다.');return}$('dlgNew').showModal()};
+$('nSize').onchange=()=>{const c=$('nSize').value==='custom';$('nW').hidden=$('nH').hidden=!c};
+$('nOk').onclick=async()=>{
+  if(!await confirmDiscard())return;
+  let w,h;const v=$('nSize').value;if(v==='custom'){w=+$('nW').value;h=+$('nH').value}else if(v.includes('x')){[w,h]=v.split('x').map(Number)}else w=h=+v;
+  try{const d=await api('POST','/api/new',{base:$('nBase').value,width:w,height:h,players:+$('nPl').value});$('dlgNew').close();loadDoc(d);dirty=true;updateButtons();msg('새 맵을 만들었습니다. [저장]으로 이름을 정하세요.','ok')}
+  catch(e){dialog('새 맵을 만들 수 없습니다',esc(e.message))}
+};
+$('bProps').onclick=()=>{if(!M)return;$('pName').textContent=M.name||'(저장 안 됨)';$('pTs').textContent=M.themeName;$('pSize').textContent=`${M.W} × ${M.H}`;$('pVer').textContent='MAP v'+M.version;$('pPl').value=M.players;$('dlgProps').showModal()};
+$('pOk').onclick=()=>{
+  const n=+$('pPl').value;$('dlgProps').close();if(n===M.players)return;checkpoint();
+  while(M.starts.length>n)M.starts.pop();
+  while(M.starts.length<n){let placed=false;for(let r=0;r<Math.max(M.W,M.H)&&!placed;r+=3)for(let a=0;a<16&&!placed;a++){
+      const x=Math.round(M.W/2+r*Math.cos(a/16*6.283)),y=Math.round(M.H/2+r*Math.sin(a/16*6.283));
+      if(inside(x,y)&&!M.starts.some(p=>p[0]===x&&p[1]===y)){M.starts.push([x,y]);placed=true}}
+    if(!placed)break}
+  M.players=M.starts.length;if(curStart>=M.players)curStart=0;refreshAll();msg(`인원 ${M.players}명. 새 시작 위치를 원하는 곳으로 옮기세요.`)
+};
+$('bCheck').onclick=()=>{
+  const issues=[];M.starts.forEach(([x,y],i)=>{
+    if(x<5||y<5||x>=M.W-5||y>=M.H-5)issues.push(`P${i+1}: 맵 가장자리에서 5칸 이상 안쪽에 배치하세요.`);
+    else{let bad=false;for(let xx=x-4;xx<=x+4&&!bad;xx++)for(let yy=y-4;yy<=y+4;yy++)if(!isGround(M.grid[gi(xx,yy)])){bad=true;break}if(bad)issues.push(`P${i+1}: 시작 주변 9×9에 장애물 타일이 있습니다.`)}
+    if(M.resources.some(([rx,ry])=>Math.abs(rx-x)<=4&&Math.abs(ry-y)<=4))issues.push(`P${i+1}: 시작 주변에 자원이 겹칩니다.`)});
+  dialog('시작 위치 검사',issues.length?`<ul>${issues.map(t=>'<li>'+esc(t)+'</li>').join('')}</ul><p class="note">보수적인 사전 검사이며 실제 게임 시작 검증을 대신하지 않습니다.</p>`:'모든 시작 위치 주변 9×9가 평지이고 자원과 겹치지 않습니다.');
+};
+$('bHelp').onclick=()=>dialog('도움말',`<ul>
+<li><kbd>B</kbd> 타일 · <kbd>E</kbd> 지우기 · <kbd>I</kbd> 스포이드 · <kbd>H</kbd>/<kbd>Shift+H</kbd> 고지대 · <kbd>R</kbd> 자원 · <kbd>P</kbd> 시작 위치 · <kbd>S</kbd> 선택</li>
+<li><kbd>[</kbd> <kbd>]</kbd> 브러시 크기 · 휠 확대/축소 · <kbd>Space</kbd>+드래그 또는 가운데 버튼 드래그로 이동</li>
+<li><kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> 취소/다시 · <kbd>Ctrl+C</kbd>/<kbd>Ctrl+V</kbd> 선택 영역 복사/붙여넣기 · <kbd>Ctrl+S</kbd> 저장 · <kbd>Esc</kbd> 선택 해제</li>
+<li>타일 도구에서 우클릭하면 그 칸의 타일을 집습니다. 고지대로 표시된 칸에 다른 타일을 칠해도 고지대 표시는 유지됩니다.</li>
+<li>저장하면 기존 파일은 같은 폴더의 <b>.bak</b>으로 보관됩니다. 다른 프로그램이 그 사이에 파일을 바꿨다면 저장을 막습니다.</li>
+<li>실제 대전에는 A·B PC의 map/multi에 같은 맵 파일이 있어야 합니다. 고지대 시야는 런처 v0.034 이상이 필요합니다.</li></ul>`);
+addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+
+// ---------- start ----------
+addEventListener('resize',()=>{resize();drawPalette()});
+setTool('tile');resize();loadMaps();
+</script>
+</body>
+</html>

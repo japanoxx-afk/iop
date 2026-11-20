@@ -3,6 +3,7 @@
 임팩트 오브 파워(Impact of Power) 런처 · 밸런스 편집기
 
 ## 구성
+- **v0.035:** 웹 맵 에디터 추가. [멀티 맵 에디터] 탭의 [웹 맵 에디터 열기]를 누르면 런처가 127.0.0.1에 로컬 서버를 띄우고 브라우저로 엽니다. 브러시 크기·원형, 스포이드, 지우기, 고지대 칠하기/해제, 자원, 시작 위치, 영역 선택(복사·붙여넣기·채우기·평지·자원/장식 삭제), 다시 실행, 미니맵, 표시 레이어, 새 맵(크기·인원 지정), 맵 속성(인원 변경), 시작 위치 검사를 지원합니다. map/multi에 바로 저장하고 기존 파일은 .bak으로 보관합니다. 자원 매장량은 IOP 맵에 저장되지 않아 편집할 수 없습니다. [자세히](MAP_EDITOR.md)
 - **v0.034:** 고지대 시야 재설계. v0.032는 고지대를 게임 타일 칸 값의 비트 0x100에 저장했는데, 게임은 같은 값에 자원·건물의 점유 비트(0x0010~0x8000)를 OR로 찍습니다. 그래서 자원 칸이 고지대로 오인되어 저지대 지상 유닛에게 자원이 보이지 않았습니다. 이제 고지대는 패치 전용 비트맵(게임 malloc 0x26000바이트)에만 저장하고 게임 칸 값에는 넣지 않습니다. 에뮬레이션에서 자원이 있는 맵의 런타임 칸 값이 원본 게임과 완전히 같고 자원이 계속 보이는 것을 확인. 실제 게임·두 PC 대전은 미확인. A·B 모두 v0.034 필요. [자세히](MAP_EDITOR.md)
 - **v0.033:** v0.032 고지대 시야 롤백. 게임에서 자원이 보이지 않는 문제가 보고되어, 게임 시작 전에 모든 고지대 시야 패치(v0.026~v0.032)를 `iop.exe`에서 제거. 에디터의 고지대 표시는 유지되지만 시야에는 적용하지 않음. A·B 모두 v0.033으로 업데이트 필요(v0.032와는 접속 차단).
 - **v0.032:** 고지대 시야 다시 활성화. 저지대의 지상 유닛·건물은 에디터로 표시한 고지대를 볼 수 없고, 고지대 위 유닛과 공중 유닛은 기존 시야 유지. v0.026~0.029의 `BBSIM ERROR #847234` 원인(시야 함수 인자 3개를 다시 넘기지 않아 타일 y가 시야 범위 번호로 읽힘, 관측자 위치를 덮어쓴 스택에서 읽음, 게임 .data 내부 주소 사용)을 수정. 구 패치는 자동 교체. A·B 런처의 고지대 시야 버전이 다르면 접속 시 파일 불일치로 차단. [자세히](MAP_EDITOR.md)
@@ -25,6 +26,7 @@
 - **v0.012 맵 저장:** 현재 파일 덮어쓰기와 직전 백업, 다른 이름으로 저장, 타일 그림별 일반·언덕·입구 분류 지정 및 영구 보관. [사용법](MAP_EDITOR.md)
 - **v0.010 맵 에디터:** 실제 타일 그래픽·통행 속성 편집, 언덕 영역 복사, 자원 추가/삭제, 빈 맵 생성, 시작 위치 편집, 실행 취소. 뷰어에 시작 위치와 자원 표시. [사용법·검증 범위·언덕 시야 검토](MAP_EDITOR.md)
 - **v0.009 프리서버 통합:** A PC Radmin IP 자동·영구 저장, 단순화된 탭 구성, 자동 업데이트 교체·재시작 수정, 생산 단축키 영구 적용, 멀티플레이 맵 뷰어, 서버 ON/OFF, 창모드 기본, 진단 로그/ZIP 저장, hosts 자동 등록, 화염병 수정 및 A·B 게임 파일 비교. [A/B PC 설정 방법](PRIVATE_SERVER.md)
+- `iop_map_web.py`, `map_editor_web/IOPMapEditor.html` — 브라우저 맵 에디터(로컬 서버·JSON API·단일 HTML 페이지)
 - `iop_maps.py`, `iop_map_tab.py` — 멀티플레이 맵 크기·인원·테마 판독과 팔레트 기반 지형 미리보기
 - `iop_network.py`, `iop_server_tab.py`, `iop_admin.py`, `iop_elevation.py`, `iop_sync.py`, `iop_server/` — 내장 서버와 런처 통합 기능
 - `iop_launcher.py` — 게임 실행(창모드/전체화면), 밸런스 편집, 네트워크(IPX/Radmin) 설정을 담은 통합 런처
@@ -35,7 +37,7 @@
 
 ## 빌드
 ```
-pyinstaller --onefile --noconsole --name IOPLauncher_Server --distpath release --add-data "iop_balance.py;." iop_launcher.py
+pyinstaller --onefile --noconsole --name IOPLauncher_Server --distpath release --add-data "iop_balance.py;." --add-data "map_editor_web/IOPMapEditor.html;map_editor_web" --add-data "game-assets/manifest.json;game-assets" --add-data "game-assets/v0.019/ddraw.dll;game-assets/v0.019" --add-data "game-assets/v0.019/ddraw.ini;game-assets/v0.019" --add-data "game-assets/CNC-DDRAW-LICENSE.txt;game-assets" iop_launcher.py
 ```
 
 빌드된 exe는 게임 폴더(iop.exe 가 있는 곳)에 두고 실행합니다.

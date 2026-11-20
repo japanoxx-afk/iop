@@ -13,7 +13,7 @@ with zipfile.ZipFile(release/'IOPLauncher_Server_Source.zip','w',zipfile.ZIP_DEF
     for path in sorted(root.rglob('*')):
         relative=path.relative_to(root)
         if not path.is_file() or any(part in excluded for part in relative.parts): continue
-        if path.suffix.lower() not in ('.py','.md','.bat','.txt') and path.name!='.gitignore': continue
+        if path.suffix.lower() not in ('.py','.md','.bat','.txt','.html') and path.name!='.gitignore': continue
         archive.write(path,'iop_launcher_server/'+relative.as_posix())
 with zipfile.ZipFile(release/'IOPLauncher_Server_Package.zip','w',zipfile.ZIP_DEFLATED) as archive:
     archive.write(exe,exe.name)

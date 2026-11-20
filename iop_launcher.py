@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.034"
+VERSION = "0.035"
 MANUAL_DOWNLOAD_URL = "https://github.com/japanoxx-afk/iop/tree/main/release"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
@@ -260,6 +260,12 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         from iop_map_editor import MapEditor
         self.tab_map_editor = tk.Frame(nb)
         nb.add(self.tab_map_editor, text='  멀티 맵 에디터  ')
+        web = tk.Frame(self.tab_map_editor, bg="#eef3ff"); web.pack(fill="x", padx=6, pady=(6, 0))
+        tk.Button(web, text="웹 맵 에디터 열기 (브라우저)", bg="#3b6ea5", fg="white",
+                  command=self.open_web_map_editor).pack(side="left", padx=6, pady=6)
+        tk.Label(web, bg="#eef3ff", fg="#334",
+                 text="브러시 크기·원형, 선택 영역 복사/붙여넣기, 다시 실행, 미니맵, 새 맵 크기 지정을 지원합니다. "
+                      "map/multi에 바로 저장하며 기존 파일은 .bak으로 보관합니다.").pack(side="left")
         self.map_editor = MapEditor(self.tab_map_editor, self)
         self.tab_hotkeys=tk.Frame(nb); nb.add(self.tab_hotkeys,text="  생산 단축키  ")
         self._build_hotkeys(self.tab_hotkeys)
@@ -347,6 +353,21 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
 
     def launch_game(self):
         self.launch_private_game()
+
+    def open_web_map_editor(self):
+        if self._need_game_dir():
+            return
+        try:
+            if getattr(self, "_web_editor", None) is None:
+                import iop_map_web
+                categories = self.cfg.setdefault("tile_categories", {})
+                api = iop_map_web.Api(lambda: self.game_dir, categories, lambda: save_cfg(self.cfg))
+                self._web_editor = iop_map_web.EditorServer(api)
+            self._web_editor.open()
+            self.set_status(f"웹 맵 에디터: {self._web_editor.url}")
+            diagnostics.event("web_map_editor_opened", port=self._web_editor.port)
+        except Exception as exc:
+            messagebox.showerror("웹 맵 에디터", f"에디터를 열지 못했습니다.\n{exc}")
 
     def open_folder(self, path):
         if path and os.path.isdir(path):
