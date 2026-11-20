@@ -38,7 +38,7 @@ BASE = 0x400000
 STATE_VA = 0x782DE0
 BITMAP_PTR_VA = 0x782DE4
 # Compared between A and B launchers; bump when the fog rule changes.
-FEATURE_VERSION = "3"
+FEATURE_VERSION = "4"
 
 CAVE_OFFSET = 0xC7F0A
 CAVE_SIZE = 0xC8000 - CAVE_OFFSET
@@ -84,7 +84,46 @@ def _entry(name):
     return CAVE_VA + ENTRY[name]
 
 
-CURRENT = {
+# v0.038 line of sight. A low-ground ground observer also misses every cell
+# whose line from the observer crosses a high-ground cell, so a ridge hides
+# what lies behind it. (The fog renderer 0x42E310 blends cells up to 3 apart,
+# so a thin unrevealed ridge between two revealed sides still looked visible.)
+# The .text cave is full; this code sits in .rdata's zero file padding past
+# its VirtualSize (same page, mapped from the file), and .rdata gains
+# IMAGE_SCN_MEM_EXECUTE so it also runs where DEP is enforced.
+LOS_OFFSET = 0xD0990
+LOS_VA = BASE + LOS_OFFSET
+LOS_SIZE = 0xD1000 - LOS_OFFSET
+RDATA_FLAGS_OFFSET = 0x244
+OBSERVER_X_VA = 0x782DE8
+OBSERVER_Y_VA = 0x782DEC
+LOS_CODE = bytes.fromhex(
+    # wrapper: air -> fixed; store observer x, y; restriction = !is_high; jmp 0x42D940
+    "508b46048b40048b443020c1e8183c13580f848975ffff50528b44240ca3e82d78008b5424"
+    "108915ec2d78006bd213e84675ffff85c00f9405e02d78005a58e96ccff5ff"
+    # reveal: max-write unless restricted and (target high or line crosses high)
+    "01f23a0a7628803de02d780000741c505289f2e81e75ffff85c0750b8b442404e80e000000"
+    "85c05a587503880ac383042411c3"
+    # los: eax=x, esi=y*19 -> eax != 0 when a cell strictly between the
+    # observer and (x, y) is high; 16.16 steps, n = max(|dx|, |dy|) <= 64
+    "5351575589c389f031d2b913000000f7f189c12b1de82d78002b0dec2d780089d89931d029"
+    "d089c789c89931d029d039f87e0289c783ff017e5783ff407f5289d8c1e01099f7ff89c389"
+    "c8c1e01099f7ff89c18b2de82d7800c1e51081c500800000a1ec2d7800c1e0100500800000"
+    "504f01dd010c2489e8c1f8108b1424c1fa106bd213e87a74ffff85c075084f75e15831c0eb"
+    "015a5d5f595bc3"
+)
+LOS_ENTRY = {"wrapper": 0x00, "reveal": 0x44, "los": 0x77}
+
+
+def _los(name):
+    return LOS_VA + LOS_ENTRY[name]
+
+
+ORIGINAL[LOS_OFFSET] = bytes(LOS_SIZE)
+ORIGINAL[RDATA_FLAGS_OFFSET] = bytes.fromhex("40000040")
+
+# v0.034-v0.037: cave wrapper/reveal without line of sight.
+V034 = {
     0x2E003: _call(0x2E003, _entry("wrapper")),
     0x2E072: _call(0x2E072, _entry("wrapper")),
     0x2E0CC: _call(0x2E0CC, _entry("fixed")),
@@ -92,6 +131,14 @@ CURRENT = {
     0x276FB: _call(0x276FB, _entry("loader")) + b"\x90",
     0x80A8E: _call(0x80A8E, _entry("setcell")),
     CAVE_OFFSET: CAVE_CODE + bytes(CAVE_SIZE - len(CAVE_CODE)),
+}
+CURRENT = {
+    **V034,
+    0x2E003: _call(0x2E003, _los("wrapper")),
+    0x2E072: _call(0x2E072, _los("wrapper")),
+    0x2DA18: _call(0x2DA18, _los("reveal")) + b"\x90" * 3,
+    LOS_OFFSET: LOS_CODE + bytes(LOS_SIZE - len(LOS_CODE)),
+    RDATA_FLAGS_OFFSET: bytes.fromhex("40000060"),
 }
 CAVE_PATCH = CURRENT[CAVE_OFFSET]
 CALL_SITES = (0x2E003, 0x2E072, 0x2E0CC)
@@ -139,7 +186,8 @@ LEGACY_V032 = _legacy(0x58, 0x70, _blocks(
     (0x58, _OLD_LOADER),
     (0x70, "01f23a0a7633803de02d78000074275051525389c389f031d2b913000000f7f150"
            "53b8f05c4900ffd083c40866a900015b5a59587503880ac3c704242eda4200c3")))
-LEGACIES = (LEGACY_V026, LEGACY_V027, LEGACY_V032)
+LEGACY_V034 = {**ORIGINAL, **V034}
+LEGACIES = (LEGACY_V026, LEGACY_V027, LEGACY_V032, LEGACY_V034)
 
 
 def _matches(data, layout):

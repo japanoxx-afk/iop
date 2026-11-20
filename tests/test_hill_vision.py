@@ -47,15 +47,19 @@ class HillVisionPatch(unittest.TestCase):
         # v0.026-v0.029 called 0x42D940 from inside the wrapper without
         # re-pushing x, y, sight, which tripped BBSIM ERROR #847234.
         patched = hill.patched_bytes(self.original)
-        for name in ('wrapper', 'fixed'):
-            code = hill.CAVE_CODE[hill.ENTRY[name]:]
+        entries = ((hill.CAVE_CODE, hill.CAVE_VA, hill.ENTRY['fixed']),
+                   (hill.LOS_CODE, hill.LOS_VA, hill.LOS_ENTRY['wrapper']))
+        for code, base, entry in entries:
+            code = code[entry:]
             jmp = code.index(bytes([0xE9]))
-            while self._target(patched, hill.CAVE_VA + hill.ENTRY[name] + jmp) != 0x42D940:
+            while self._target(patched, base + entry + jmp) != 0x42D940:
                 jmp = code.index(bytes([0xE9]), jmp + 1)
             self.assertNotIn(bytes.fromhex('c20c00'), code[:jmp])
         self.assertEqual(self._target(patched, 0x42E0CC), hill.CAVE_VA + hill.ENTRY['fixed'])
         for site in (0x42E003, 0x42E072):
-            self.assertEqual(self._target(patched, site), hill.CAVE_VA + hill.ENTRY['wrapper'])
+            self.assertEqual(self._target(patched, site), hill.LOS_VA + hill.LOS_ENTRY['wrapper'])
+        self.assertEqual(self._target(patched, 0x42DA18), hill.LOS_VA + hill.LOS_ENTRY['reveal'])
+        self.assertEqual(patched[hill.RDATA_FLAGS_OFFSET:hill.RDATA_FLAGS_OFFSET + 4], bytes.fromhex('40000060'))
 
     def test_high_ground_never_reaches_the_game_tile_grid(self):
         # v0.032 kept high ground as grid bit 0x100, which object footprints
@@ -79,7 +83,7 @@ class HillVisionPatch(unittest.TestCase):
 
     def test_legacy_hooks_are_replaced(self):
         import subprocess
-        for commit in ('2daad4c', 'c722ce6', '6808d51'):
+        for commit in ('2daad4c', 'c722ce6', '6808d51', '2f17cce'):
             source = subprocess.run(['git', 'show', commit + ':iop_hill_vision.py'], capture_output=True).stdout
             if not source:
                 self.skipTest('git history unavailable')

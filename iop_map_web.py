@@ -33,6 +33,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import iop_hills
 import iop_maps
 import iop_sprites
 import iop_stamps
@@ -170,6 +171,24 @@ def json_to_doc(data):
     return doc
 
 
+# Base ground looks of the installed multi maps (new-map dialog).
+TERRAINS = {'purple': '보랏빛 지형', 'snow': '스노우 지형', 'dirt': '흙색 지형', 'desert': '사막 지형'}
+
+
+def terrain_of(doc, palette):
+    """Classify a map by its most used ground tile: theme 1 is purple, theme 2
+    desert; theme 0 holds both grey snow and dark brown dirt ground."""
+    if doc.theme == 1:
+        return 'purple'
+    if doc.theme == 2:
+        return 'desert'
+    if not palette:
+        return 'dirt'
+    pixels = doc.tiles[doc.ground_tile()][2:]
+    r, g, b = (sum(palette[i][c] for i in pixels) / len(pixels) for c in range(3))
+    return 'snow' if min(r, g, b) > 110 and max(r, g, b) - min(r, g, b) < 40 else 'dirt'
+
+
 def new_map(base, width, height, players):
     """Flat map with the base map's theme, tile set and header."""
     if not (MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE):
@@ -218,6 +237,25 @@ class Api:
         self.lock = threading.Lock()
         self._sprites = None
         self.stamps = iop_stamps.StampStore(stamp_dir, self.folder)
+        self.hills = iop_hills.HillLibrary(self.folder)
+        self._hill_lock = threading.Lock()
+        self.warm_hills = False  # the editor server learns a theme's hills as soon as a map opens
+
+    def hill_styles(self, theme):
+        with self._hill_lock:  # one learning pass per theme even with parallel requests
+            return self.hills.get(theme)
+
+    def _warm_hills(self, theme):
+        if not self.warm_hills:
+            return
+        threading.Thread(target=lambda: self._safe(self.hill_styles, theme), daemon=True).start()
+
+    @staticmethod
+    def _safe(fn, *args):
+        try:
+            fn(*args)
+        except Exception:  # warming is best effort; the real request reports errors
+            pass
 
     def sprites(self, doc):
         """Resource and decoration images from data/Rsi.res ({} if unavailable)."""
@@ -238,13 +276,19 @@ class Api:
         return folder
 
     def list_maps(self):
-        items = []
+        items, palettes = [], {}
         for path in sorted(self.folder().glob('*.map'), key=lambda p: p.name.lower()):
             try:
                 doc = MapDocument.load(path)
+                if doc.theme not in palettes:
+                    try:
+                        palettes[doc.theme] = iop_maps.read_palette(self.game_dir(), doc.theme)
+                    except (OSError, ValueError):
+                        palettes[doc.theme] = None
                 items.append({'name': path.name, 'width': doc.width, 'height': doc.height,
                               'players': doc.players, 'theme': doc.theme,
                               'themeName': iop_maps.THEMES.get(doc.theme, ('?',))[0],
+                              'terrain': terrain_of(doc, palettes[doc.theme]), 'tiles': len(doc.tiles),
                               'mtime': int(path.stat().st_mtime * 1000)})
             except Exception as exc:
                 items.append({'name': path.name, 'error': str(exc)})
@@ -264,6 +308,9 @@ class Api:
         palette = iop_maps.read_palette(self.game_dir(), doc.theme)
         result = doc_to_json(doc, path.name, palette, self.categories)
         result['sprites'] = self.sprites(doc)
+        top, _ = iop_hills.top_mask(doc)
+        result['hillTop'] = b64(bytes(top))
+        self._warm_hills(doc.theme)
         return result
 
     def put_map(self, name, data, overwrite=False):
@@ -291,6 +338,8 @@ class Api:
         result = doc_to_json(doc, '', palette, self.categories)
         result['hash'] = None
         result['sprites'] = self.sprites(doc)
+        result['hillTop'] = b64(bytes(doc.width * doc.height))
+        self._warm_hills(doc.theme)
         return result
 
     def set_category(self, data):
@@ -366,6 +415,8 @@ def make_handler(api, token):
                 return self._api(api.list_maps)
             if url.path == '/api/map':
                 return self._api(lambda: api.get_map(query.get('name', [''])[0]))
+            if url.path == '/api/hills':
+                return self._api(lambda: api.hill_styles(int(query.get('theme', ['-1'])[0])))
             if url.path == '/api/stamps':
                 return self._api(lambda: api.stamps.list(int(query.get('theme', ['-1'])[0])))
             if url.path in ('/', '/' + PAGE):
@@ -409,6 +460,7 @@ class EditorServer:
 
     def __init__(self, api, port=PORT):
         self.api = api
+        api.warm_hills = True
         self.port = port
         self.token = secrets.token_urlsafe(24)
         self.httpd = None
