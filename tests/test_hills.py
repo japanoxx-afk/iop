@@ -63,6 +63,29 @@ class Learning(unittest.TestCase):
         self.assertIsNone(out[1 * h + 1])   # far away: untouched
 
 
+class Blocks(unittest.TestCase):
+    def test_strict_pairs_are_found(self):
+        doc = FakeMap([])
+        h = doc.height
+        for y in range(h):  # columns 10..13 hold the pairs (1, 2) and (1, 2)
+            for x, t in ((10, TOP), (11, RIM), (12, TOP), (13, RIM)):
+                doc.grid[x * h + y] = t
+        self.assertEqual(hills.pair_halves(doc), {TOP: RIM})
+
+    def test_diamond_keeps_whole_blocks(self):
+        w, h = 30, 20
+        for phase in (0, 1):
+            top = hills.diamond(w, h, 15, 9, 3, phase)
+            for y in range(h):
+                xs = [x for x in range(w) if top[x * h + y]]
+                if xs:  # every row starts on a left half and ends on a right half
+                    self.assertEqual((xs[0] - phase) % 2, 0)
+                    self.assertEqual((xs[-1] - phase) % 2, 1)
+            # one block narrower per row away from the middle
+            width = lambda y: sum(top[x * h + y] for x in range(w))
+            self.assertEqual([width(y) for y in (9, 10, 11, 12, 13)], [14, 10, 6, 2, 0])
+
+
 class Api(unittest.TestCase):
     def test_map_carries_hill_mask_and_styles_endpoint_answers(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -71,6 +94,7 @@ class Api(unittest.TestCase):
             data = api.get_map('base.map')
             mask = base64.b64decode(data['hillTop'])
             self.assertEqual(len(mask), data['width'] * data['height'])
+            self.assertEqual(len(base64.b64decode(data['hillPhase'])), data['width'] * data['height'])
             styles = api.hill_styles(data['theme'])
             self.assertIn('styles', styles)
             self.assertEqual(styles['theme'], data['theme'])

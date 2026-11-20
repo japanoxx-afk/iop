@@ -335,6 +335,7 @@ class Api:
         result['sprites'] = self.sprites(doc)
         top, _ = iop_hills.top_mask(doc)
         result['hillTop'] = b64(bytes(top))
+        result['hillPhase'] = b64(bytes(iop_hills.hill_phases(doc, top)))
         self._warm_hills(doc.theme)
         return result
 
@@ -382,6 +383,7 @@ class Api:
         result['hash'] = None
         result['sprites'] = self.sprites(doc)
         result['hillTop'] = b64(bytes(doc.width * doc.height))
+        result['hillPhase'] = b64(bytes([2]) * (doc.width * doc.height))
         self._warm_hills(doc.theme)
         return result
 
