@@ -103,7 +103,7 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
         <button data-tool="tileid" title="선택-타일ID (D): 드래그한 영역의 타일 위에 타일 번호를 표시합니다. 우클릭으로 지우기">선택-타일ID</button>
         <button data-tool="pan" title="화면 이동 (Space 또는 가운데 버튼 드래그)">이동</button>
         <button data-tool="hill" title="언덕 그리기 (U): 칠한 곳이 언덕 위가 되고 절벽이 자동으로 둘러집니다. 우클릭 드래그로 지우기">언덕 그리기</button>
-        <button data-tool="ramp" title="자동 입구 (G): 언덕 가장자리를 클릭하면 방향에 맞는 입구를 놓습니다">자동 입구</button>
+        <button data-tool="ramp" title="입구 놓기 (G): 언덕 가장자리에 마우스를 대면 미리보기, 클릭하면 놓기">입구 놓기</button>
         <button data-tool="stamp" title="언덕·입구 견본 찍기 (T): 클릭하면 원래 크기, 드래그하면 늘려서">언덕·입구</button>
         <button data-tool="fill" title="고지대 채우기 (F): 언덕 위를 클릭, 우클릭은 해제">고지대 채우기</button>
       </div>
@@ -128,9 +128,13 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
       </div>
     </div></div>
     <div class="group" id="gHill"><h3>언덕 그리기 (자동 절벽)</h3><div class="body">
-      <div class="note">모양을 고르고 [언덕 그리기]로 칠하면 언덕 위가 되고, 절벽은 설치된 맵의 같은 모양 언덕에서 배운 대로 자동으로 그려집니다. 마름모 브러시로 칠하면 게임 그림과 가장 잘 맞습니다. 우클릭 드래그는 언덕을 지웁니다. [자동 입구]로 언덕 가장자리를 클릭하면 방향에 맞는 입구가 놓입니다.</div>
+      <div class="note"><b>1.</b> 언덕 모양을 고르고 <b>2.</b> 지도에서 드래그하면 언덕이 생깁니다. 절벽은 자동으로 둘러집니다. 우클릭 드래그는 지우기. <b>3.</b> [입구 놓기]를 누르고 언덕 가장자리에 마우스를 대면 입구 미리보기가 나오고, 클릭하면 놓입니다.</div>
+      <div class="row" id="hillShapes"><button data-hs="diamond" class="on" title="드래그한 상자에 맞는 마름모 언덕 (게임 그림과 가장 잘 맞음)">마름모</button><button data-hs="ellipse" title="드래그한 상자에 맞는 둥근 언덕">타원</button><button data-hs="rect" title="드래그한 상자 그대로">사각형</button><button data-hs="line" title="드래그한 선을 따라 길쭉한 능선(벽)">능선</button><button data-hs="brush" title="브러시로 자유롭게 칠하기 (브러시 크기·모양 사용)">붓</button></div>
+      <div class="row"><span>능선 두께</span><input id="hillWidth" type="range" min="3" max="12" value="4" style="flex:1"><b id="hillWidthLbl">4</b></div>
+      <div class="row"><button id="hillGo" class="on" title="언덕 그리기 (U)">언덕 그리기</button><button id="rampGo" title="입구 놓기 (G)">입구 놓기</button></div>
       <div class="row"><label><input type="checkbox" id="hillHigh" checked> 언덕 위를 고지대로 (아래에서 시야 가림)</label></div>
       <div id="hillList"></div>
+      <div class="row"><label class="chk"><input type="checkbox" id="hillOther"> 다른 지형의 언덕 모양도 보기</label></div>
       <div id="hillInfo" class="note">맵을 열면 같은 테마의 언덕 모양이 나옵니다.</div>
     </div></div>
 
@@ -209,10 +213,8 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
 </div>
 
 <dialog id="dlgNew"><h2>새 맵</h2><div class="dbody">
-  <div class="note">고른 지형의 평지로만 채운 빈 맵을 만듭니다. 자원·장식·언덕은 없고 시작 위치만 놓입니다. 언덕·나무 등을 그릴 타일은 같은 지형 맵에서 가져옵니다.</div>
-  <div class="row"><label>지형</label><select id="nTerrain" style="flex:1"></select></div>
-  <details><summary class="note">고급: 타일을 가져올 맵 직접 고르기</summary>
-    <div class="row"><label>타일 출처</label><select id="nBase" style="flex:1"></select></div></details>
+  <div class="note">고른 테마(맵 속성)의 평지로만 채운 빈 맵을 만듭니다. 자원·장식·언덕은 없고 시작 위치만 놓입니다. 타일은 설치된 같은 테마 맵 전체에서 모아 옵니다.</div>
+  <div class="row"><label>테마</label><select id="nTerrain" style="flex:1"></select></div>
   <div class="row"><label>크기</label>
     <select id="nSize"><option value="64">64 × 64</option><option value="96">96 × 96</option><option value="100x128">100 × 128</option><option value="120">120 × 120</option><option value="128" selected>128 × 128</option><option value="custom">직접 입력</option></select>
     <input id="nW" type="number" min="32" max="128" value="128" hidden> <input id="nH" type="number" min="32" max="128" value="128" hidden>
@@ -277,7 +279,7 @@ function center(id){return M.tiles[id*TILE+2+16*32+16]}
 function loadDoc(d){
   idRect=null;idDrag=null;
   const tiles=fromB64(d.tiles);
-  M={name:d.name||'',hash:d.hash,version:d.version,theme:d.theme,themeName:d.themeName,players:d.players,
+  M={name:d.name||'',hash:d.hash,version:d.version,theme:d.theme,themeName:d.themeName,terrain:d.terrain||'',players:d.players,
      W:d.width,H:d.height,starts:d.starts.map(p=>[p[0],p[1]]),resources:d.resources.map(p=>[p[0],p[1]]),
      objects:fromB64(d.objects),fixed:d.fixed,extra:d.extra,
      grid:new Uint16Array(fromB64(d.grid).buffer.slice(0)),
@@ -343,7 +345,8 @@ function heightVariant(id,high){
 }
 
 // ---------- edits ----------
-function setCell(x,y,id){if(!inside(x,y))return false;const i=gi(x,y);if(M.grid[i]===id)return false;M.grid[i]=id;M.minimap[y*M.W+x]=center(id);return true}
+let editGen=0;
+function setCell(x,y,id){if(!inside(x,y))return false;const i=gi(x,y);if(M.grid[i]===id)return false;editGen++;M.grid[i]=id;M.minimap[y*M.W+x]=center(id);return true}
 function paintTile(x,y,id){
   // keep the cell's high-ground mark when painting a new graphic
   if(isHighTile(M.grid[gi(x,y)])&&!isHighTile(id))id=heightVariant(id,true);
@@ -360,7 +363,7 @@ function cellsUnder(cx,cy){
   return out;
 }
 function snapshot(){return{hillTop:M.hillTop.slice(),hillLock:M.hillLock.slice(),grid:M.grid.slice(),minimap:M.minimap.slice(),starts:M.starts.map(p=>p.slice()),resources:M.resources.map(p=>p.slice()),objects:M.objects.slice(),tileCount:M.tileCount,players:M.players}}
-function restore(s){M.hillTop=s.hillTop.slice();M.hillLock=s.hillLock.slice();M.grid=s.grid.slice();M.minimap=s.minimap.slice();M.starts=s.starts.map(p=>p.slice());M.resources=s.resources.map(p=>p.slice());M.objects=s.objects.slice();M.tileCount=s.tileCount;M.players=s.players;keyIndex=null;if(curStart>=M.players)curStart=0}
+function restore(s){editGen++;M.hillTop=s.hillTop.slice();M.hillLock=s.hillLock.slice();M.grid=s.grid.slice();M.minimap=s.minimap.slice();M.starts=s.starts.map(p=>p.slice());M.resources=s.resources.map(p=>p.slice());M.objects=s.objects.slice();M.tileCount=s.tileCount;M.players=s.players;keyIndex=null;if(curStart>=M.players)curStart=0}
 function checkpoint(){undoStack.push(snapshot());if(undoStack.length>MAXUNDO)undoStack.shift();redoStack=[];dirty=true;updateButtons()}
 function undo(){if(!undoStack.length)return;redoStack.push(snapshot());restore(undoStack.pop());dirty=true;refreshAll();msg('실행 취소')}
 function redo(){if(!redoStack.length)return;undoStack.push(snapshot());restore(redoStack.pop());dirty=true;refreshAll();msg('다시 실행')}
@@ -451,9 +454,14 @@ function draw(){
     ctx.globalAlpha=1;ctx.strokeStyle='#54a0ff';ctx.lineWidth=2;ctx.strokeRect(ox+d.x*zoom,oy+d.y*zoom,w*zoom,h*zoom);
     ctx.font='bold 13px Arial';ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillStyle='#fff';ctx.fillText(`${w}×${h}`,ox+d.x*zoom+3,oy+d.y*zoom-3);
   }
-  if(hover&&inside(...hover)&&tool!=='stamp'){
+  if(hillDrag){const add=!hillDrag.right;ctx.fillStyle=add?'rgba(77,216,255,.35)':'rgba(255,80,80,.35)';
+    for(const [x,y] of hillShapeCells(hillDrag))ctx.fillRect(ox+x*zoom,oy+y*zoom,zoom,zoom);
+    const a=Math.min(hillDrag.x0,hillDrag.x1),b=Math.min(hillDrag.y0,hillDrag.y1);ctx.font='bold 13px Arial';ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillStyle='#fff';
+    ctx.fillText(`${Math.abs(hillDrag.x1-hillDrag.x0)+1}×${Math.abs(hillDrag.y1-hillDrag.y0)+1}`,ox+a*zoom+3,oy+b*zoom-3)}
+  if(hover&&inside(...hover)&&tool==='ramp'&&!panDrag)drawRampPreview();
+  else if(hover&&inside(...hover)&&tool!=='stamp'&&!hillDrag){
     if(pasting&&clip){ctx.globalAlpha=.6;for(let dx=0;dx<clip.w;dx++)for(let dy=0;dy<clip.h;dy++){const x=hover[0]+dx,y=hover[1]+dy;if(inside(x,y))ctx.drawImage(tileCanvas(clip.ids[dx*clip.h+dy]),ox+x*zoom,oy+y*zoom,zoom,zoom)}ctx.globalAlpha=1;ctx.strokeStyle='#4f8cff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,clip.w*zoom,clip.h*zoom)}
-    else if(['tile','erase','high','low','hill'].includes(tool)){ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1;for(const [x,y] of cellsUnder(...hover))ctx.strokeRect(ox+x*zoom+.5,oy+y*zoom+.5,zoom-1,zoom-1)}
+    else if(['tile','erase','high','low'].includes(tool)||(tool==='hill'&&hillShape==='brush')){ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1;for(const [x,y] of cellsUnder(...hover))ctx.strokeRect(ox+x*zoom+.5,oy+y*zoom+.5,zoom-1,zoom-1)}
     else{if(tool==='res'&&resImg&&resourceAt(...hover)<0)drawSprite(resImg,hover[0],hover[1],.55);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,zoom,zoom)}
   }
   drawMinimapView();
@@ -557,9 +565,10 @@ let msgTimer=null;function msg(t,kind=''){const m=$('stMsg');m.textContent=t;m.c
 const HINTS={tile:'좌클릭/드래그로 칠하기, 우클릭으로 타일 집기',erase:'가장 많이 쓰인 평지 타일로 지웁니다',pick:'지도의 타일을 클릭하면 팔레트에서 선택됩니다',
  high:'시야가 분리될 고지대 내부를 칠하세요 (A·B 같은 맵 필요)',low:'잘못 칠한 고지대 표시를 지웁니다',res:'좌클릭 추가, 우클릭 또는 같은 칸 클릭으로 삭제',
  start:'오른쪽 목록에서 번호를 고르고 지도를 클릭',select:'드래그로 영역 선택 후 왼쪽 버튼 사용',pan:'드래그로 화면 이동',
- stamp:'견본 클릭=원래 크기, 드래그=늘려 찍기, 우클릭=취소',hill:'칠하기=언덕 위, 우클릭 드래그=언덕 지우기 (절벽은 자동)',ramp:'언덕 가장자리(절벽)를 클릭하면 방향에 맞는 입구',tileid:'드래그한 영역의 타일 위에 타일 번호 표시 (확대할수록 잘 보임), 우클릭=지우기',fill:'언덕 위 클릭=고지대로 채우기, 우클릭=고지대 해제 (절벽·입구에서 멈춤)'};
-const TOOL_NAMES={tile:'타일',erase:'지우기',pick:'스포이드',high:'고지대',low:'고지대 해제',res:'자원',start:'시작 위치',select:'선택',tileid:'선택-타일ID',pan:'이동',stamp:'언덕·입구',fill:'고지대 채우기',hill:'언덕 그리기',ramp:'자동 입구'};
-function setTool(t){tool=t;pasting=false;document.querySelectorAll('#toolBtns button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));$('toolHint').textContent=HINTS[t]||'';$('stTool').textContent=TOOL_NAMES[t];stage.style.cursor=t==='pan'?'grab':'crosshair';draw()}
+ stamp:'견본 클릭=원래 크기, 드래그=늘려 찍기, 우클릭=취소',hill:'드래그=언덕 만들기, 우클릭 드래그=지우기 (모양은 왼쪽 언덕 그리기에서)',ramp:'언덕 가장자리에 마우스를 대면 미리보기, 클릭=입구 놓기',tileid:'드래그한 영역의 타일 위에 타일 번호 표시 (확대할수록 잘 보임), 우클릭=지우기',fill:'언덕 위 클릭=고지대로 채우기, 우클릭=고지대 해제 (절벽·입구에서 멈춤)'};
+const TOOL_NAMES={tile:'타일',erase:'지우기',pick:'스포이드',high:'고지대',low:'고지대 해제',res:'자원',start:'시작 위치',select:'선택',tileid:'선택-타일ID',pan:'이동',stamp:'언덕·입구',fill:'고지대 채우기',hill:'언덕 그리기',ramp:'입구 놓기'};
+function setTool(t){tool=t;pasting=false;hillDrag=null;document.querySelectorAll('#toolBtns button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
+  $('hillGo').classList.toggle('on',t==='hill');$('rampGo').classList.toggle('on',t==='ramp');if((t==='hill'||t==='ramp')&&M&&!HL)loadHills();$('toolHint').textContent=HINTS[t]||'';$('stTool').textContent=TOOL_NAMES[t];stage.style.cursor=t==='pan'?'grab':'crosshair';draw()}
 document.querySelectorAll('#toolBtns button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 $('brushSize').oninput=e=>{brush=+e.target.value;$('brushSizeLbl').textContent=brush;draw()};
 document.querySelectorAll('#shapeBtns button').forEach(b=>b.onclick=()=>{shape=b.dataset.shape;document.querySelectorAll('#shapeBtns button').forEach(x=>x.classList.toggle('on',x===b));draw()});
@@ -593,7 +602,7 @@ const HOLD_MS=350,HOLD_SLOP=5,DEFERRED=['res','start','fill','pick','ramp'];
 function startHoldPan(){
   if(!hold)return;hold.panned=true;
   if(stroke){const s=stroke;stroke=null;const snap=undoStack.pop();if(s.changed&&snap){restore(snap);renderMinimap();refreshInfo()}updateButtons()}
-  dragRect=null;idDrag=null;stampDrag=null;
+  dragRect=null;idDrag=null;stampDrag=null;hillDrag=null;
   panDrag={sx:lastMouse[0],sy:lastMouse[1],ox,oy};stage.style.cursor='grabbing';msg('화면 이동 (왼쪽 버튼 길게 누르기)');draw();
 }
 function instantTool(x,y,right){
@@ -628,6 +637,7 @@ cv.addEventListener('mousedown',e=>{
   if(tool==='tileid'){if(right){idRect=null;updateIdInfo();draw();return}idDrag=[x,y,x,y].map((v,i)=>Math.max(0,Math.min(i%2?M.H-1:M.W-1,v)));draw();return}
   if(tool==='stamp'){if(right){stampDrag=null;draw();return}if(!curStamp){msg('왼쪽 [언덕·입구 견본]에서 견본을 고르세요','bad');return}if(inside(x,y)){stampDrag={x,y,cx:x,cy:y};draw()}return}
   if(tool==='select'){dragRect=[x,y,x,y].map((v,i)=>Math.max(0,Math.min(i%2?M.H-1:M.W-1,v)));draw();return}
+  if(tool==='hill'&&hillShape!=='brush'){if(!hillReady())return;const cx=Math.max(0,Math.min(M.W-1,x)),cy=Math.max(0,Math.min(M.H-1,y));hillDrag={x0:cx,y0:cy,x1:cx,y1:cy,right};draw();return}
   checkpoint();stroke={changed:false,right};try{stroke.changed=applyAt(x,y,right)}catch(err){msg(err.message,'bad')}
   if(right&&tool==='tile'){undoStack.pop();stroke=null;updateButtons()}
   draw();
@@ -637,7 +647,7 @@ addEventListener('mousemove',e=>{
   lastMouse=[e.clientX,e.clientY];
   if(hold&&!hold.panned&&Math.hypot(e.clientX-hold.sx,e.clientY-hold.sy)>HOLD_SLOP){clearTimeout(hold.t);hold.t=null}
   if(panDrag){ox=panDrag.ox+e.clientX-panDrag.sx;oy=panDrag.oy+e.clientY-panDrag.sy;draw();return}
-  if(e.target!==cv&&!stroke&&!dragRect&&!stampDrag&&!idDrag)return;
+  if(e.target!==cv&&!stroke&&!dragRect&&!stampDrag&&!idDrag&&!hillDrag)return;
   const [x,y]=cellAt(e);hover=[x,y];
   if(inside(x,y)){const id=M.grid[gi(x,y)];$('stCell').textContent=`${x}, ${y}`;$('stTile').textContent=`#${id} ${M.categories[id]}${isHighTile(id)?' · 고지대':''}${resourceAt(x,y)>=0?' · 자원':''}`}
   else{$('stCell').textContent='-';$('stTile').textContent='-'}
@@ -645,6 +655,7 @@ addEventListener('mousemove',e=>{
   if(dragRect){dragRect[2]=Math.max(0,Math.min(M.W-1,x));dragRect[3]=Math.max(0,Math.min(M.H-1,y))}
   if(stampDrag){stampDrag.cx=x;stampDrag.cy=y}
   if(idDrag){idDrag[2]=Math.max(0,Math.min(M.W-1,x));idDrag[3]=Math.max(0,Math.min(M.H-1,y))}
+  if(hillDrag){hillDrag.x1=Math.max(0,Math.min(M.W-1,x));hillDrag.y1=Math.max(0,Math.min(M.H-1,y))}
   draw();
 });
 addEventListener('mouseup',e=>{
@@ -654,6 +665,7 @@ addEventListener('mouseup',e=>{
   if(dragRect){sel=dragRect;dragRect=null;updateSel();draw()}
   if(idDrag){idRect=idDrag;idDrag=null;updateIdInfo();draw()}
   if(stampDrag){const d=stampDrag;stampDrag=null;placeStamp(d.x,d.y,stampTarget(d))}
+  if(hillDrag){const d=hillDrag;hillDrag=null;hillDragDone(d)}
 });
 cv.addEventListener('mouseleave',()=>{hover=null;draw()});
 cv.addEventListener('wheel',e=>{if(!M)return;e.preventDefault();const r=cv.getBoundingClientRect();const steps=[2,3,4,6,8,12,16,24,32,48,64];let i=steps.findIndex(s=>s>=zoom);if(i<0)i=steps.length-1;i=Math.max(0,Math.min(steps.length-1,i+(e.deltaY<0?1:-1)));setZoom(steps[i],e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -669,7 +681,7 @@ addEventListener('keydown',e=>{
   if(e.ctrlKey&&k==='v'){if(clip){e.preventDefault();startPaste()}return}
   if(e.ctrlKey)return;
   if(k===' '){spaceDown=true;stage.style.cursor='grab';e.preventDefault();return}
-  if(k==='escape'){pasting=false;sel=null;dragRect=null;stampDrag=null;idDrag=null;idRect=null;updateSel();draw();return}
+  if(k==='escape'){pasting=false;sel=null;dragRect=null;stampDrag=null;idDrag=null;idRect=null;hillDrag=null;updateSel();draw();return}
   if(k==='delete'&&sel){$('selDelRes').click();return}
   const map={b:'tile',e:'erase',i:'pick',r:'res',p:'start',s:'select',d:'tileid',t:'stamp',f:'fill',u:'hill',g:'ramp'};
   if(k==='h'){setTool(e.shiftKey?'low':'high');return}
@@ -827,7 +839,7 @@ async function loadHills(){
   HL=null;curHill=null;renderHillStyles();$('hillInfo').textContent='설치된 맵에서 언덕 모양을 배우는 중… (처음 한 번 10초 정도)';
   const p=HLloading=api('GET','/api/hills?theme='+theme);
   try{const r=await p;if(HLloading!==p||!M||M.theme!==theme)return;HL=r;HLtheme=theme;hillTiles=fromB64(r.tiles);hillCache=new Map();
-    curHill=r.styles[0]||null;renderHillStyles()}
+    curHill=null;renderHillStyles();if(!curHill)curHill=visibleStyles()[0]||null;renderHillStyles()}
   catch(e){$('hillInfo').textContent='언덕 모양을 배우지 못했습니다: '+e.message}
 }
 function hillPoolCanvas(t){
@@ -836,15 +848,38 @@ function hillPoolCanvas(t){
   for(let i=0;i<1024;i++){const v=hillTiles[b+i]*3;img.data[i*4]=p[v];img.data[i*4+1]=p[v+1];img.data[i*4+2]=p[v+2];img.data[i*4+3]=255}
   g.putImageData(img,0,0);hillCache.set(t,c);return c;
 }
+// Name each learned style by the colour of its cliffs, and tag it with the
+// terrain of the maps it was learned from.
+const HUES=[[15,'붉은'],[45,'갈색'],[70,'노란'],[165,'초록'],[250,'푸른'],[335,'보라'],[361,'붉은']];
+function styleColour(s){
+  const sm=s.sample,p=M.palette;let r=0,g=0,b=0,n=0;
+  for(const t of sm.ids){const f=hillTiles[t*TILE]|hillTiles[t*TILE+1]<<8;if(!(f&8))continue;
+    for(let i=0;i<1024;i+=7){const v=hillTiles[t*TILE+2+i]*3;r+=p[v];g+=p[v+1];b+=p[v+2];n++}}
+  if(!n)return'';r/=n;g/=n;b/=n;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=mx?(mx-mn)/mx:0;
+  if(sat<.2)return mx>170?'흰':'회색';
+  let h=mx===r?60*((g-b)/(mx-mn)):mx===g?60*((b-r)/(mx-mn)+2):60*((r-g)/(mx-mn)+4);h=(h+360)%360;
+  if(h>=15&&h<70&&mx<120)return'갈색';
+  return HUES.find(([lim])=>h<lim)[1];
+}
+function styleTerrain(s){const c={};for(const n of s.maps){const m=maps.find(q=>q.name===n);if(m&&m.terrain)c[m.terrain]=(c[m.terrain]||0)+1}
+  let best='',bn=0;for(const k in c)if(c[k]>bn){bn=c[k];best=k}return best}
+function labelStyles(){
+  const seen={};for(const s of HL.styles){if(!s.terrain)s.terrain=styleTerrain(s);if(s.label)continue;const c=styleColour(s)||'언덕';seen[c]=(seen[c]||0)+1;s.label=`${c} 언덕 ${seen[c]}`}
+}
+function visibleStyles(){
+  if(!HL)return[];labelStyles();const own=HL.styles.filter(s=>!M.terrain||!s.terrain||s.terrain===M.terrain);
+  return $('hillOther').checked||!own.length?own.concat(HL.styles.filter(s=>!own.includes(s))):own;
+}
 function renderHillStyles(){
   const box=$('hillList');box.innerHTML='';if(!HL){return}
-  for(const s of HL.styles){const d=document.createElement('div');d.className=s===curHill?'cur':'';d.title=`${s.name} · 언덕 ${s.hills}개 · ${s.maps.join(', ')}`;
+  const list=visibleStyles();if(curHill&&!list.includes(curHill))curHill=list[0]||null;
+  for(const s of list){const d=document.createElement('div');d.className=s===curHill?'cur':'';d.title=`${s.label} · ${terrainName(s.terrain)||'지형 모름'} · 언덕 ${s.hills}개에서 배움 · ${s.maps.join(', ')}`;
     const sm=s.sample,k=Math.max(1,Math.min(4,Math.floor(80/Math.max(sm.w,sm.h)))),c=document.createElement('canvas');c.width=sm.w*k;c.height=sm.h*k;const g=c.getContext('2d');
     for(let x=0;x<sm.w;x++)for(let y=0;y<sm.h;y++)g.drawImage(hillPoolCanvas(sm.ids[x*sm.h+y]),x*k,y*k,k,k);
-    const l=document.createElement('span');l.textContent=s.name;d.appendChild(c);d.appendChild(l);
+    const l=document.createElement('span');l.textContent=s.label;d.appendChild(c);d.appendChild(l);
     d.onclick=()=>{curHill=s;if(!['hill','ramp'].includes(tool))setTool('hill');renderHillStyles()};box.appendChild(d)}
   const ramps=curHill?HL.ramps.filter(r=>r.style===curHill.id).length:0;
-  $('hillInfo').textContent=HL.styles.length?(curHill?`${curHill.name}: 언덕 ${curHill.hills}개에서 배움 · 이 모양의 입구 ${ramps}개`:'모양을 고르세요'):'이 테마에서 배운 언덕이 없습니다.';
+  $('hillInfo').textContent=HL.styles.length?(curHill?`${curHill.label}: ${curHill.maps.slice(0,2).join(', ')}${curHill.maps.length>2?' 외':''}의 언덕 ${curHill.hills}개에서 배움 · 이 모양의 입구 ${ramps}개`:'모양을 고르세요'):'이 테마에서 배운 언덕이 없습니다.';
 }
 function hillKey(x,y,win){let k='';for(let dx=win[0][0];dx<=win[0][1];dx++)for(let dy=win[1][0];dy<=win[1][1];dy++){const nx=x+dx,ny=y+dy;k+=inside(nx,ny)&&M.hillTop[gi(nx,ny)]?'1':'0'}return k}
 function hillLookup(x,y){
@@ -876,22 +911,61 @@ function retileHills(x0,y0,x1,y1,wasNear){
   return changed;
 }
 function nearSet(x0,y0,x1,y1){const s=new Set(),n=HL.near;for(let x=Math.max(0,x0-n);x<=Math.min(M.W-1,x1+n);x++)for(let y=Math.max(0,y0-n);y<=Math.min(M.H-1,y1+n+1);y++)if(nearTop(x,y))s.add(gi(x,y));return s}
-function hillPaint(cx,cy,add){
-  if(!HL||!curHill){msg(HL?'왼쪽 [언덕 그리기]에서 모양을 고르세요':'언덕 모양을 아직 배우는 중입니다','bad');return false}
-  const cells=cellsUnder(cx,cy).filter(([x,y])=>!!M.hillTop[gi(x,y)]!==add&&!M.hillLock[gi(x,y)]);if(!cells.length)return false;
+function hillReady(){if(HL&&curHill)return true;msg(HL?'왼쪽 [언덕 그리기]에서 언덕 모양을 고르세요':'언덕 모양을 아직 배우는 중입니다. 잠시 뒤 다시 하세요','bad');if(!HL)loadHills();return false}
+function hillPaint(cx,cy,add){if(!hillReady())return false;return hillApply(cellsUnder(cx,cy),add)}
+function hillApply(list,add){
+  const cells=list.filter(([x,y])=>inside(x,y)&&!!M.hillTop[gi(x,y)]!==add&&!M.hillLock[gi(x,y)]);if(!cells.length)return false;
   let x0=1e9,y0=1e9,x1=-1,y1=-1;for(const [x,y] of cells){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y)}
   const before=add?null:nearSet(x0,y0,x1,y1);
-  for(const [x,y] of cells)M.hillTop[gi(x,y)]=add?1:0;
+  for(const [x,y] of cells)M.hillTop[gi(x,y)]=add?1:0;editGen++;
   retileHills(x0,y0,x1,y1,before);return true;
 }
-// 자동 입구: pick a learned entrance facing the hill and fit it to the cliff.
-function placeRamp(x,y){
-  if(!HL||!curHill){msg('언덕 모양을 먼저 고르세요','bad');return}
-  // the side the hill top lies on: rays in 8 directions, nearer hits weigh more
-  const RAY=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]],score=RAY.map(([dx,dy])=>{let s=0;for(let k=1;k<=5;k++){const nx=x+dx*k,ny=y+dy*k;if(inside(nx,ny)&&M.hillTop[gi(nx,ny)])s+=6-k}return s});
-  const dir=score.indexOf(Math.max(...score)),lowSide=score[(dir+4)%8];
-  if(!score[dir]||M.hillTop[gi(x,y)]||lowSide>=score[dir]){msg('언덕 가장자리(절벽)를 클릭하세요. 한쪽은 언덕 위, 반대쪽은 아래여야 합니다','bad');return}
-  if(!HL.ramps.length){msg('이 테마에서 배운 입구가 없습니다','bad');return}
+// Drag shapes (라크무-style): a box gives a diamond, ellipse or rectangle hill,
+// a line gives a ridge of the chosen width.
+let hillShape='diamond',hillDrag=null;
+function hillShapeCells(d){
+  const out=[],a=Math.min(d.x0,d.x1),b=Math.min(d.y0,d.y1),c=Math.max(d.x0,d.x1),e=Math.max(d.y0,d.y1);
+  if(hillShape==='line'){const w=+$('hillWidth').value,r=w/2,dx=d.x1-d.x0,dy=d.y1-d.y0,L=dx*dx+dy*dy;
+    for(let x=a-w;x<=c+w;x++)for(let y=b-w;y<=e+w;y++){let t=L?((x-d.x0)*dx+(y-d.y0)*dy)/L:0;t=Math.max(0,Math.min(1,t));
+      const px=d.x0+t*dx-x,py=d.y0+t*dy-y;if(px*px+py*py<=r*r&&inside(x,y))out.push([x,y])}return out}
+  const cx=(a+c)/2,cy=(b+e)/2,rx=(c-a)/2+.5,ry=(e-b)/2+.5;
+  for(let x=a;x<=c;x++)for(let y=b;y<=e;y++){const u=(x-cx)/rx,v=(y-cy)/ry;
+    if(hillShape==='diamond'&&Math.abs(u)+Math.abs(v)>1.001)continue;if(hillShape==='ellipse'&&u*u+v*v>1.001)continue;if(inside(x,y))out.push([x,y])}
+  return out;
+}
+function hillDragDone(d){
+  if(!hillReady())return;
+  const small=hillShape!=='line'&&(Math.abs(d.x1-d.x0)<2||Math.abs(d.y1-d.y0)<2)&&!d.right;
+  if(small){msg('언덕은 가로·세로 3칸 이상으로 드래그하세요 (작은 언덕은 절벽 그림이 깨집니다)','bad');return}
+  checkpoint();let ok=false;try{ok=hillApply(hillShapeCells(d),!d.right)}catch(e){msg(e.message,'bad')}
+  if(!ok){undoStack.pop();updateButtons();msg('바뀐 칸이 없습니다');return}
+  renderMinimap();refreshInfo();rebuildPalette();draw();msg(d.right?'언덕을 지웠습니다':`${curHill.label||curHill.name} 언덕을 만들었습니다. [입구 놓기]로 입구를 내세요`,'ok');
+}
+document.querySelectorAll('#hillShapes button').forEach(b=>b.onclick=()=>{hillShape=b.dataset.hs;document.querySelectorAll('#hillShapes button').forEach(x=>x.classList.toggle('on',x===b));if(tool!=='hill')setTool('hill');draw()});
+$('hillWidth').oninput=e=>{$('hillWidthLbl').textContent=e.target.value;draw()};
+$('hillGo').onclick=()=>setTool('hill');$('rampGo').onclick=()=>setTool('ramp');
+$('hillOther').onchange=()=>renderHillStyles();
+// 입구 놓기: pick a learned entrance facing the hill and fit it to the cliff.
+// rampPlan works out what a click would write, so hovering can preview it;
+// a click a few cells off the edge snaps to the nearest edge cell.
+const RAY=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
+function edgeDir(x,y){
+  if(!inside(x,y)||M.hillTop[gi(x,y)]||M.hillLock[gi(x,y)])return -1;
+  const score=RAY.map(([dx,dy])=>{let s=0;for(let k=1;k<=5;k++){const nx=x+dx*k,ny=y+dy*k;if(inside(nx,ny)&&M.hillTop[gi(nx,ny)])s+=6-k}return s});
+  const dir=score.indexOf(Math.max(...score));return score[dir]>=4&&score[(dir+4)%8]<score[dir]?dir:-1;
+}
+let rampCache=null;
+function rampPlan(x,y){
+  const key=`${x},${y},${curHill&&curHill.id},${editGen}`;if(rampCache&&rampCache.key===key)return rampCache.plan;
+  let plan;
+  if(!HL||!curHill)plan={error:'언덕 모양을 먼저 고르세요'};
+  else if(!HL.ramps.length)plan={error:'이 테마에서 배운 입구가 없습니다'};
+  else{const cand=[];for(let r=0;r<=3;r++)for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++)if(Math.max(Math.abs(dx),Math.abs(dy))===r){const d=edgeDir(x+dx,y+dy);if(d>=0)cand.push([x+dx,y+dy,d])}
+    plan={error:'언덕 가장자리(절벽) 가까이에 마우스를 대세요'};
+    for(const [ex,ey,dir] of cand.slice(0,4)){const p=rampFit(ex,ey,dir);if(!p.error){plan=p;break}plan=p}}
+  rampCache={key,plan};return plan;
+}
+function rampFit(x,y,dir){
   let best=null;
   // The learned direction labels are rough; matching each patch's own hill-top
   // shape against the map around the click picks the facing reliably.
@@ -902,19 +976,34 @@ function placeRamp(x,y){
       for(let i=0;i<r.top.length;i++){const qx=px+Math.floor(i/r.h),qy=py+i%r.h;if(!inside(qx,qy)){agree-=3;continue}const t=!!M.hillTop[gi(qx,qy)];if(r.top[i])tops+=t;agree+=(t===!!r.top[i])?1:-2}
       if(!tops)continue;const score=agree*100/r.top.length-other-2*(Math.abs(ax)+Math.abs(ay));
       if(!best||score>best.score)best={r,px,py,score}}}
-  if(!best||best.score<20){msg(`이 가장자리(${DIRS[dir]}쪽이 언덕 위)에 맞는 입구를 찾지 못했습니다. 다른 가장자리를 클릭해 보세요`,'bad');return}
-  const {r,px,py}=best;checkpoint();const ramps=new Set();let ch=0;
-  try{for(let i=0;i<r.ids.length;i++){const qx=px+Math.floor(i/r.h),qy=py+i%r.h;if(!inside(qx,qy))continue;const q=gi(qx,qy);
-      // only the ramp itself and its side posts, and posts only where the map has a cliff
-      if(!r.ramp[i]){const lx=Math.floor(i/r.h),ly=i%r.h;let touch=false;
-        for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const ax=lx+dx,ay=ly+dy;if(ax>=0&&ay>=0&&ax<r.w&&ay<r.h&&r.ramp[ax*r.h+ay])touch=true}
-        if(!touch||r.top[i]||!(hillTiles[r.ids[i]*TILE]&8)||!(flags(M.grid[q])&8))continue}
-      const id=tileIdFor(poolBytes(r.ids[i],false));if(setCell(qx,qy,id))ch++;
-      if(r.ramp[i]){M.hillLock[q]=1;M.hillTop[q]=0;ramps.add(id)}}
-  }catch(e){msg(e.message,'bad')}
+  if(!best||best.score<20)return{error:`이 가장자리(${DIRS[dir]}쪽이 언덕 위)에 맞는 입구가 없습니다. 조금 옆으로 옮겨 보세요`,x,y};
+  const {r,px,py}=best,cells=[];
+  for(let i=0;i<r.ids.length;i++){const qx=px+Math.floor(i/r.h),qy=py+i%r.h;if(!inside(qx,qy))continue;const q=gi(qx,qy);
+    // only the ramp itself and its side posts, and posts only where the map has a cliff
+    if(!r.ramp[i]){const lx=Math.floor(i/r.h),ly=i%r.h;let touch=false;
+      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const ax=lx+dx,ay=ly+dy;if(ax>=0&&ay>=0&&ax<r.w&&ay<r.h&&r.ramp[ax*r.h+ay])touch=true}
+      if(!touch||r.top[i]||!(hillTiles[r.ids[i]*TILE]&8)||!(flags(M.grid[q])&8))continue}
+    cells.push([qx,qy,r.ids[i],!!r.ramp[i]])}
+  return{x,y,dir,r,score:best.score,cells};
+}
+function placeRamp(x,y){
+  const plan=rampPlan(x,y);if(plan.error){msg(plan.error,'bad');return}
+  checkpoint();const ramps=new Set();let ch=0;
+  try{for(const [qx,qy,t,isRamp] of plan.cells){const q=gi(qx,qy),id=tileIdFor(poolBytes(t,false));if(setCell(qx,qy,id))ch++;
+      if(isRamp){M.hillLock[q]=1;M.hillTop[q]=0;ramps.add(id)}}}
+  catch(e){msg(e.message,'bad')}
   if(!ch){undoStack.pop();updateButtons();msg('바뀐 칸이 없습니다');return}
-  markRamps(ramps);renderMinimap();rebuildPalette();refreshInfo();draw();
-  msg(`입구를 놓았습니다 (${r.map} (${r.x},${r.y}) 근처에서 배움, 맞춤 ${Math.round(best.score)}점)`,'ok');
+  editGen++;markRamps(ramps);renderMinimap();rebuildPalette();refreshInfo();draw();
+  msg(`입구를 놓았습니다 (${DIRS[plan.dir]}쪽이 언덕 위 · ${plan.r.map}에서 배움)`,'ok');
+}
+function drawRampPreview(){
+  const [hx,hy]=hover,plan=rampPlan(hx,hy);ctx.font='bold 13px Arial';ctx.textAlign='center';ctx.textBaseline='bottom';
+  if(plan.error){ctx.fillStyle='rgba(255,70,50,.35)';ctx.fillRect(ox+hx*zoom,oy+hy*zoom,zoom,zoom);label(plan.error,ox+(hx+.5)*zoom,oy+hy*zoom-4,'#ff8a78');return}
+  ctx.globalAlpha=.85;for(const [x,y,t] of plan.cells)ctx.drawImage(hillPoolCanvas(t),ox+x*zoom,oy+y*zoom,zoom,zoom);ctx.globalAlpha=1;
+  ctx.strokeStyle='#7dff8a';ctx.lineWidth=2;for(const [x,y,,isRamp] of plan.cells)if(isRamp)ctx.strokeRect(ox+x*zoom+1,oy+y*zoom+1,zoom-2,zoom-2);
+  let ty=1e9,tx=0,n=0;for(const [x,y] of plan.cells){ty=Math.min(ty,y);tx+=x;n++}
+  label(`입구: ${DIRS[plan.dir]}쪽이 언덕 위 · 클릭하면 놓기`,ox+(tx/n+.5)*zoom,oy+ty*zoom-4,'#9dffa6');
+  function label(t,x,y,c){const w=ctx.measureText(t).width+8;ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(x-w/2,y-17,w,17);ctx.fillStyle=c;ctx.fillText(t,x,y-2)}
 }
 function sector(dx,dy){const a=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;return Math.floor((a+22.5)/45)%8}
 $('hillHigh').onchange=()=>{};
@@ -975,29 +1064,23 @@ $('sName').addEventListener('keydown',e=>{if(e.key==='Enter')$('sOk').click()});
 
 // ---------- new / props / check ----------
 const TERRAINS=[['purple','보랏빛 지형'],['snow','스노우 지형'],['dirt','흙색 지형'],['desert','사막 지형']];
-// Each terrain borrows the tile set of the installed map of that look with the most tiles.
-function terrainBase(t){let best=null;for(const m of maps)if(!m.error&&m.terrain===t&&(!best||m.tiles>best.tiles))best=m;return best}
+// The server gathers each theme's tiles from every installed map of that theme.
+function terrainCount(t){return maps.filter(m=>!m.error&&m.terrain===t).length}
+function terrainName(t){const f=TERRAINS.find(([k])=>k===t);return f?f[1]:''}
 function fillNewDialog(){
   const ts=$('nTerrain'),keep=ts.value;ts.innerHTML='';
-  for(const [k,n] of TERRAINS){const b=terrainBase(k),o=document.createElement('option');o.value=k;o.textContent=b?n:n+' (해당 맵 없음)';o.disabled=!b;ts.appendChild(o)}
-  if(keep&&terrainBase(keep))ts.value=keep;else{const f=TERRAINS.find(([k])=>terrainBase(k));if(f)ts.value=f[0]}
-  syncNewBase();
+  for(const [k,n] of TERRAINS){const c=terrainCount(k),o=document.createElement('option');o.value=k;o.textContent=c?n:n+' (설치된 맵 없음)';o.disabled=!c;ts.appendChild(o)}
+  if(keep&&terrainCount(keep))ts.value=keep;else{const f=TERRAINS.find(([k])=>terrainCount(k));if(f)ts.value=f[0]}
 }
-function syncNewBase(){
-  const t=$('nTerrain').value,sel=$('nBase');sel.innerHTML='';
-  for(const m of maps)if(!m.error&&m.terrain===t){const o=document.createElement('option');o.value=m.name;o.textContent=`${m.name} (타일 ${m.tiles}개)`;sel.appendChild(o)}
-  const b=terrainBase(t);if(b)sel.value=b.name;
-}
-$('nTerrain').onchange=syncNewBase;
-$('bNew').onclick=async()=>{if(!maps.length)await loadMaps();if(!maps.some(m=>!m.error)){dialog('새 맵','기본으로 쓸 맵이 map/multi 폴더에 없습니다.');return}$('dlgNew').showModal()};
+$('bNew').onclick=async()=>{if(!maps.length)await loadMaps();if(!maps.some(m=>!m.error)){dialog('새 맵','타일을 가져올 맵이 map/multi 폴더에 없습니다.');return}fillNewDialog();$('dlgNew').showModal()};
 $('nSize').onchange=()=>{const c=$('nSize').value==='custom';$('nW').hidden=$('nH').hidden=!c};
 $('nOk').onclick=async()=>{
   if(!await confirmDiscard())return;
   let w,h;const v=$('nSize').value;if(v==='custom'){w=+$('nW').value;h=+$('nH').value}else if(v.includes('x')){[w,h]=v.split('x').map(Number)}else w=h=+v;
-  try{const d=await api('POST','/api/new',{base:$('nBase').value,width:w,height:h,players:+$('nPl').value});$('dlgNew').close();loadDoc(d);dirty=true;updateButtons();msg('새 맵을 만들었습니다. [저장]으로 이름을 정하세요.','ok')}
+  try{const d=await api('POST','/api/new',{terrain:$('nTerrain').value,width:w,height:h,players:+$('nPl').value});$('dlgNew').close();loadDoc(d);dirty=true;updateButtons();msg(`새 ${terrainName(d.terrain)} 맵을 만들었습니다. [저장]으로 이름을 정하세요.`,'ok')}
   catch(e){dialog('새 맵을 만들 수 없습니다',esc(e.message))}
 };
-$('bProps').onclick=()=>{if(!M)return;$('pName').textContent=M.name||'(저장 안 됨)';$('pTs').textContent=M.themeName;$('pSize').textContent=`${M.W} × ${M.H}`;$('pVer').textContent='MAP v'+M.version;$('pPl').value=M.players;$('dlgProps').showModal()};
+$('bProps').onclick=()=>{if(!M)return;$('pName').textContent=M.name||'(저장 안 됨)';$('pTs').textContent=(terrainName(M.terrain)||M.themeName)+' (테마 '+M.theme+')';$('pSize').textContent=`${M.W} × ${M.H}`;$('pVer').textContent='MAP v'+M.version;$('pPl').value=M.players;$('dlgProps').showModal()};
 $('pOk').onclick=()=>{
   const n=+$('pPl').value;$('dlgProps').close();if(n===M.players)return;checkpoint();
   while(M.starts.length>n)M.starts.pop();

@@ -74,6 +74,22 @@ class MapWebApi(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.api.new({'base': 'base.map', 'width': 300, 'height': 64, 'players': 2})
 
+    def test_new_map_by_terrain_takes_tiles_from_that_terrain(self):
+        terrain = self.api.list_maps()['maps'][0]['terrain']
+        data = self.api.new({'terrain': terrain, 'width': 64, 'height': 64, 'players': 2})
+        self.assertEqual(data['terrain'], terrain)
+        doc = MapDocument.load(self.root / 'map/multi/base.map')
+        tiles = web.unb64(data['tiles'])
+        grid = set(web.struct.unpack(f'<{64 * 64}H', web.unb64(data['grid'])))
+        self.assertEqual(grid, {0})  # one plain ground everywhere
+        self.assertEqual(tiles[:1026], doc.tiles[doc.ground_tile()])
+        self.assertEqual(set(tiles[i:i + 1026] for i in range(0, len(tiles), 1026)), set(doc.tiles))
+        with self.assertRaises(ValueError):
+            self.api.new({'terrain': 'moon', 'width': 64, 'height': 64, 'players': 2})
+        other = next(k for k in web.TERRAINS if k != terrain)
+        with self.assertRaises(ValueError):
+            self.api.new({'terrain': other, 'width': 64, 'height': 64, 'players': 2})
+
     def test_category_is_remembered_per_tile_graphic(self):
         data = self.api.get_map('base.map')
         tile = web.b64(web.unb64(data['tiles'])[:1026])

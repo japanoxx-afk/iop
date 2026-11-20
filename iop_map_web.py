@@ -7,7 +7,7 @@ in the browser. The page talks to a small JSON API:
     GET  /api/maps                       map/multi/*.map list
     GET  /api/map?name=X.map             decoded map (tiles, grid, starts, ...)
     PUT  /api/map?name=X.map[&overwrite=1]   save edited map (.bak backup)
-    POST /api/new                        new map built from a base map
+    POST /api/new                        empty map of a terrain (theme)
     PUT  /api/category                   remember a tile's 일반/언덕/입구 label
     GET  /api/stamps?theme=N             hill/ramp stamps for a theme
     PUT  /api/stamp                      save a user stamp
@@ -189,13 +189,36 @@ def terrain_of(doc, palette):
     return 'snow' if min(r, g, b) > 110 and max(r, g, b) - min(r, g, b) < 40 else 'dirt'
 
 
-def new_map(base, width, height, players):
-    """Flat map with the base map's theme, tile set and header."""
+# Tiles a new map starts with: the installed maps reach 2,261, keep below that.
+MAX_NEW_TILES = 2048
+
+
+def theme_tiles(docs, limit=MAX_NEW_TILES):
+    """Tile set for an empty map of one terrain, gathered from all installed
+    maps of that terrain: graphics ordered by how often the maps use them,
+    and the most used plain ground first."""
+    from collections import Counter
+    use, ground = Counter(), Counter()
+    for doc in docs:
+        for tile, n in Counter(doc.grid).items():
+            raw = doc.tiles[tile]
+            use[raw] += n
+            if doc.is_ground(tile) and not int.from_bytes(raw[:2], 'little') & HIGH_GROUND_FLAG:
+                ground[raw] += n
+    if not ground:
+        raise ValueError('이 지형의 맵에 평지 타일이 없습니다.')
+    first = ground.most_common(1)[0][0]
+    tiles = [first] + [raw for raw, _ in use.most_common() if raw != first]
+    return tiles[:limit]
+
+
+def new_map(base, width, height, players, tiles=None):
+    """Flat map with the base map's theme and header. The tile set is the
+    base map's, or `tiles` (ground first) when given."""
     if not (MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE):
         raise ValueError(f'맵 크기는 {MIN_SIZE}~{MAX_SIZE} 사이로 지정하세요.')
     if not 2 <= players <= 8:
         raise ValueError('인원은 2~8명으로 지정하세요.')
-    ground = base.ground_tile()
     doc = MapDocument()
     doc.path = None
     doc.version, doc.theme = base.version, base.theme
@@ -205,9 +228,10 @@ def new_map(base, width, height, players):
     doc.fixed = bytes(fixed)
     doc.players = players
     doc.width, doc.height = width, height
-    doc.tiles = list(base.tiles)
+    doc.tiles = list(tiles) if tiles else list(base.tiles)
+    ground = 0 if tiles else base.ground_tile()
     doc.grid = [ground] * (width * height)
-    color = base.tiles[ground][2 + 16 * 32 + 16]
+    color = doc.tiles[ground][2 + 16 * 32 + 16]
     doc.minimap = bytearray([color]) * (width * height)
     doc.bounds = struct.pack('<4i', 0, 0, width - 1, height - 1)
     doc.resources, doc.objects = [], b''
@@ -307,6 +331,7 @@ class Api:
         doc = MapDocument.load(path)
         palette = iop_maps.read_palette(self.game_dir(), doc.theme)
         result = doc_to_json(doc, path.name, palette, self.categories)
+        result['terrain'] = terrain_of(doc, palette)
         result['sprites'] = self.sprites(doc)
         top, _ = iop_hills.top_mask(doc)
         result['hillTop'] = b64(bytes(top))
@@ -332,10 +357,28 @@ class Api:
                 'warnings': doc.spawn_issues(), 'backup': path.name + '.bak' if overwrite else None}
 
     def new(self, data):
-        base = MapDocument.load(self._path(data.get('base')))
-        doc = new_map(base, int(data['width']), int(data['height']), int(data['players']))
+        size = int(data['width']), int(data['height']), int(data['players'])
+        terrain = data.get('terrain')
+        if terrain:
+            # every installed map of that terrain gives tiles; the one with the
+            # most tiles gives the header
+            if terrain not in TERRAINS:
+                raise ValueError('지형은 ' + ', '.join(TERRAINS.values()) + ' 중 하나입니다.')
+            docs = []
+            for item in self.list_maps()['maps']:
+                if item.get('terrain') == terrain:
+                    docs.append(MapDocument.load(self._path(item['name'])))
+            if not docs:
+                raise ValueError(f'{TERRAINS[terrain]} 맵이 게임 폴더에 없어 타일을 가져올 수 없습니다.')
+            base = max(docs, key=lambda d: len(d.tiles))
+            doc = new_map(base, *size, tiles=theme_tiles(docs))
+        else:
+            base = MapDocument.load(self._path(data.get('base')))
+            doc = new_map(base, *size)
+            terrain = None
         palette = iop_maps.read_palette(self.game_dir(), doc.theme)
         result = doc_to_json(doc, '', palette, self.categories)
+        result['terrain'] = terrain or terrain_of(doc, palette)
         result['hash'] = None
         result['sprites'] = self.sprites(doc)
         result['hillTop'] = b64(bytes(doc.width * doc.height))
