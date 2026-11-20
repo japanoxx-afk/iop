@@ -54,6 +54,11 @@ dialog .dbody label{min-width:84px;color:var(--dim)}
 dialog .dfoot{display:flex;justify-content:flex-end;gap:6px;padding:10px 14px;border-top:1px solid var(--line)}
 dialog ul{margin:6px 0;padding-left:18px}
 #empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:15px;text-align:center;pointer-events:none}
+#stampList{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-height:260px;overflow-y:auto}
+#stampList>div{border:1px solid var(--line);border-radius:4px;padding:2px;cursor:pointer;background:#111;text-align:center;font-size:11px;color:var(--dim);overflow:hidden}
+#stampList>div.cur{border-color:var(--accent);background:#1d2a44;color:var(--text)}
+#stampList canvas{display:block;margin:0 auto;image-rendering:pixelated;max-width:100%}
+.kind-high{color:#d58bff}.kind-low{color:#7bed9f}.kind-ramp{color:#54a0ff}
 kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-size:11px}
 </style>
 </head>
@@ -96,6 +101,8 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
         <button data-tool="start" title="시작 위치 이동 (P)">시작 위치</button>
         <button data-tool="select" title="영역 선택 (S)">선택</button>
         <button data-tool="pan" title="화면 이동 (Space 또는 가운데 버튼 드래그)">이동</button>
+        <button data-tool="stamp" title="언덕·입구 견본 찍기 (T): 클릭하면 원래 크기, 드래그하면 늘려서">언덕·입구</button>
+        <button data-tool="fill" title="고지대 채우기 (F): 언덕 위를 클릭, 우클릭은 해제">고지대 채우기</button>
       </div>
       <div class="row"><span class="note" id="toolHint"></span></div>
     </div></div>
@@ -117,6 +124,14 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
         </div>
       </div>
     </div></div>
+    <div class="group" id="gStamp"><h3>언덕·입구 견본</h3><div class="body">
+      <div class="row"><select id="stampKind" style="flex:1"><option value="">전체</option><option value="high">고지대 언덕 (시야 가림)</option><option value="low">낮은 언덕 (시야 열림)</option><option value="ramp">입구</option></select>
+        <button id="stampDel" disabled title="내가 저장한 견본 삭제">삭제</button></div>
+      <div id="stampList"></div>
+      <div id="stampInfo" class="note">맵을 열면 같은 테마의 견본이 나옵니다.</div>
+      <div class="note">견본을 고르고 지도를 클릭하면 원래 크기로, 왼쪽 위에서 오른쪽 아래로 드래그하면 절벽 무늬를 반복해 늘려서 찍습니다. 고지대 언덕은 언덕 위가 자동으로 고지대가 됩니다. 다른 맵의 언덕을 [선택] 도구로 고른 뒤 [견본으로 저장]하면 여기에 추가됩니다.</div>
+    </div></div>
+
     <div class="group" id="gBrush"><h3>브러시</h3><div class="body">
       <div class="row"><span>크기</span><input id="brushSize" type="range" min="1" max="15" value="1" style="flex:1"><b id="brushSizeLbl">1</b></div>
       <div class="row" id="shapeBtns"><button data-shape="square" class="on">사각형</button><button data-shape="circle">원형</button></div>
@@ -138,6 +153,7 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
         <button id="selDelRes" disabled>자원 삭제</button>
         <button id="selDelObj" disabled>장식 삭제</button>
       </div>
+      <div class="row"><button id="selStamp" disabled title="이 영역을 언덕·입구 견본으로 저장 (다른 맵에서도 사용)">견본으로 저장</button></div>
     </div></div>
 
   </div>
@@ -204,6 +220,12 @@ kbd{background:#333;border:1px solid #555;border-radius:3px;padding:0 4px;font-s
   <div class="note">map/multi 폴더에 저장됩니다. 대전하려면 같은 파일을 상대 PC의 map/multi에도 복사하세요.</div>
 </div><div class="dfoot"><button onclick="this.closest('dialog').close()">취소</button><button id="sOk" class="on">저장</button></div></dialog>
 
+<dialog id="dlgStamp"><h2>견본으로 저장</h2><div class="dbody">
+  <div class="row"><label>이름</label><input id="stName" style="flex:1" maxlength="40"></div>
+  <div class="row"><label>종류</label><select id="stKind" style="flex:1"><option value="high">고지대 언덕 (언덕 위가 시야를 가림)</option><option value="low">낮은 언덕 (시야가 보임)</option><option value="ramp">입구 (언덕 오르는 길)</option></select></div>
+  <div class="note">고지대 언덕인데 고지대 표시가 없으면 절벽 위쪽을 찾아 자동으로 표시합니다. 견본은 런처 설정 폴더에 저장되어 같은 테마의 모든 맵에서 쓸 수 있습니다.</div>
+</div><div class="dfoot"><button onclick="this.closest('dialog').close()">취소</button><button id="stOk" class="on">저장</button></div></dialog>
+
 <dialog id="dlgMsg"><h2 id="mTitle">알림</h2><div class="dbody" id="mBody"></div>
 <div class="dfoot"><button id="mNo" hidden>취소</button><button id="mOk" class="on">확인</button></div></dialog>
 
@@ -250,7 +272,7 @@ function loadDoc(d){
   $('empty').style.display='none';
   ['bSave','bSaveAs','bProps','bCheck'].forEach(id=>$(id).disabled=false);
   $('gMaps').classList.add('closed');
-  viewStart();refreshAll();
+  viewStart();refreshAll();loadStamps();
 }
 function mostUsedGround(){
   const count=new Map();for(const id of M.grid)count.set(id,(count.get(id)||0)+1);
@@ -398,7 +420,13 @@ function draw(){
   if($('lyEdge').checked){ctx.strokeStyle='#ff5a5a';ctx.lineWidth=2;ctx.strokeRect(ox-1,oy-1,M.W*zoom+2,M.H*zoom+2)}
   const rect=dragRect||sel;
   if(rect){const [a,b,c,d]=norm(rect);ctx.setLineDash([6,4]);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+a*zoom,oy+b*zoom,(c-a+1)*zoom,(d-b+1)*zoom);ctx.setLineDash([])}
-  if(hover&&inside(...hover)){
+  if(tool==='stamp'&&curStamp&&(stampDrag||(hover&&inside(...hover)))){
+    const d=stampDrag||{x:hover[0],y:hover[1],cx:hover[0],cy:hover[1]},[w,h]=stampTarget(d),ids=stretchIds(curStamp,w,h);
+    ctx.globalAlpha=.7;for(let dx=0;dx<w;dx++)for(let dy=0;dy<h;dy++){const x=d.x+dx,y=d.y+dy;if(inside(x,y)&&x>=x0-1&&x<=x1&&y>=y0-1&&y<=y1&&!curStamp.skip[ids[dx*h+dy]])ctx.drawImage(stampTile(curStamp,ids[dx*h+dy]),ox+x*zoom,oy+y*zoom,zoom,zoom)}
+    ctx.globalAlpha=1;ctx.strokeStyle='#54a0ff';ctx.lineWidth=2;ctx.strokeRect(ox+d.x*zoom,oy+d.y*zoom,w*zoom,h*zoom);
+    ctx.font='bold 13px Arial';ctx.textAlign='left';ctx.textBaseline='bottom';ctx.fillStyle='#fff';ctx.fillText(`${w}×${h}`,ox+d.x*zoom+3,oy+d.y*zoom-3);
+  }
+  if(hover&&inside(...hover)&&tool!=='stamp'){
     if(pasting&&clip){ctx.globalAlpha=.6;for(let dx=0;dx<clip.w;dx++)for(let dy=0;dy<clip.h;dy++){const x=hover[0]+dx,y=hover[1]+dy;if(inside(x,y))ctx.drawImage(tileCanvas(clip.ids[dx*clip.h+dy]),ox+x*zoom,oy+y*zoom,zoom,zoom)}ctx.globalAlpha=1;ctx.strokeStyle='#4f8cff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,clip.w*zoom,clip.h*zoom)}
     else if(['tile','erase','high','low'].includes(tool)){ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1;for(const [x,y] of cellsUnder(...hover))ctx.strokeRect(ox+x*zoom+.5,oy+y*zoom+.5,zoom-1,zoom-1)}
     else{if(tool==='res'&&resImg&&resourceAt(...hover)<0)drawSprite(resImg,hover[0],hover[1],.55);ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.strokeRect(ox+hover[0]*zoom,oy+hover[1]*zoom,zoom,zoom)}
@@ -480,8 +508,9 @@ let msgTimer=null;function msg(t,kind=''){const m=$('stMsg');m.textContent=t;m.c
 
 const HINTS={tile:'좌클릭/드래그로 칠하기, 우클릭으로 타일 집기',erase:'가장 많이 쓰인 평지 타일로 지웁니다',pick:'지도의 타일을 클릭하면 팔레트에서 선택됩니다',
  high:'시야가 분리될 고지대 내부를 칠하세요 (A·B 같은 맵 필요)',low:'잘못 칠한 고지대 표시를 지웁니다',res:'좌클릭 추가, 우클릭 또는 같은 칸 클릭으로 삭제',
- start:'오른쪽 목록에서 번호를 고르고 지도를 클릭',select:'드래그로 영역 선택 후 왼쪽 버튼 사용',pan:'드래그로 화면 이동'};
-const TOOL_NAMES={tile:'타일',erase:'지우기',pick:'스포이드',high:'고지대',low:'고지대 해제',res:'자원',start:'시작 위치',select:'선택',pan:'이동'};
+ start:'오른쪽 목록에서 번호를 고르고 지도를 클릭',select:'드래그로 영역 선택 후 왼쪽 버튼 사용',pan:'드래그로 화면 이동',
+ stamp:'견본 클릭=원래 크기, 드래그=늘려 찍기, 우클릭=취소',fill:'언덕 위 클릭=고지대로 채우기, 우클릭=고지대 해제 (절벽·입구에서 멈춤)'};
+const TOOL_NAMES={tile:'타일',erase:'지우기',pick:'스포이드',high:'고지대',low:'고지대 해제',res:'자원',start:'시작 위치',select:'선택',pan:'이동',stamp:'언덕·입구',fill:'고지대 채우기'};
 function setTool(t){tool=t;pasting=false;document.querySelectorAll('#toolBtns button').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));$('toolHint').textContent=HINTS[t]||'';$('stTool').textContent=TOOL_NAMES[t];stage.style.cursor=t==='pan'?'grab':'crosshair';draw()}
 document.querySelectorAll('#toolBtns button').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 $('brushSize').oninput=e=>{brush=+e.target.value;$('brushSizeLbl').textContent=brush;draw()};
@@ -491,7 +520,7 @@ document.querySelectorAll('.group.fold h3').forEach(h=>h.onclick=()=>{h.parentNo
 
 // ---------- selection ----------
 function updateSel(){
-  const on=!!(M&&sel);['selCopy','selFill','selFlat','selHigh','selLow','selDelRes','selDelObj'].forEach(id=>$(id).disabled=!on);$('selPaste').disabled=!(M&&clip);
+  const on=!!(M&&sel);['selCopy','selFill','selFlat','selHigh','selLow','selDelRes','selDelObj','selStamp'].forEach(id=>$(id).disabled=!on);$('selPaste').disabled=!(M&&clip);
   if(on){const [a,b,c,d]=norm(sel);$('selInfo').textContent=`(${a},${b}) ~ (${c},${d}) · ${c-a+1}×${d-b+1}칸`}
   else $('selInfo').textContent=clip?`복사됨: ${clip.w}×${clip.h}칸`:'선택 도구로 영역을 드래그하세요.';
 }
@@ -530,6 +559,8 @@ cv.addEventListener('mousedown',e=>{
   if(tool==='start'){if(!inside(x,y))return;if(right){const i=M.starts.findIndex(p=>p[0]===x&&p[1]===y);if(i>=0){curStart=i;refreshPlayers();draw()}return}
     if(M.starts.some((p,i)=>i!==curStart&&p[0]===x&&p[1]===y)){msg('다른 시작 위치와 겹칩니다','bad');return}
     checkpoint();M.starts[curStart]=[x,y];refreshPlayers();renderMinimap();draw();msg(`P${curStart+1} → (${x}, ${y})`);return}
+  if(tool==='stamp'){if(right){stampDrag=null;draw();return}if(!curStamp){msg('왼쪽 [언덕·입구 견본]에서 견본을 고르세요','bad');return}if(inside(x,y)){stampDrag={x,y,cx:x,cy:y};draw()}return}
+  if(tool==='fill'){if(inside(x,y))fillHigh(x,y,!right);return}
   if(tool==='select'){dragRect=[x,y,x,y].map((v,i)=>Math.max(0,Math.min(i%2?M.H-1:M.W-1,v)));draw();return}
   checkpoint();stroke={changed:false};try{stroke.changed=applyAt(x,y,right)}catch(err){msg(err.message,'bad')}
   if(right&&tool==='tile'){undoStack.pop();stroke=null;updateButtons()}
@@ -538,18 +569,20 @@ cv.addEventListener('mousedown',e=>{
 addEventListener('mousemove',e=>{
   if(!M)return;
   if(panDrag){ox=panDrag.ox+e.clientX-panDrag.sx;oy=panDrag.oy+e.clientY-panDrag.sy;draw();return}
-  if(e.target!==cv&&!stroke&&!dragRect)return;
+  if(e.target!==cv&&!stroke&&!dragRect&&!stampDrag)return;
   const [x,y]=cellAt(e);hover=[x,y];
   if(inside(x,y)){const id=M.grid[gi(x,y)];$('stCell').textContent=`${x}, ${y}`;$('stTile').textContent=`#${id} ${M.categories[id]}${isHighTile(id)?' · 고지대':''}${resourceAt(x,y)>=0?' · 자원':''}`}
   else{$('stCell').textContent='-';$('stTile').textContent='-'}
   if(stroke&&(e.buttons&1)){try{stroke.changed=applyAt(x,y,false)||stroke.changed}catch(err){msg(err.message,'bad')}}
   if(dragRect){dragRect[2]=Math.max(0,Math.min(M.W-1,x));dragRect[3]=Math.max(0,Math.min(M.H-1,y))}
+  if(stampDrag){stampDrag.cx=x;stampDrag.cy=y}
   draw();
 });
 addEventListener('mouseup',()=>{
   if(panDrag){panDrag=null;stage.style.cursor=tool==='pan'?'grab':'crosshair';return}
   if(stroke){if(!stroke.changed){undoStack.pop();updateButtons()}else{renderMinimap();refreshInfo();if(['high','low'].includes(tool))rebuildPalette()}stroke=null}
   if(dragRect){sel=dragRect;dragRect=null;updateSel();draw()}
+  if(stampDrag){const d=stampDrag;stampDrag=null;placeStamp(d.x,d.y,stampTarget(d))}
 });
 cv.addEventListener('mouseleave',()=>{hover=null;draw()});
 cv.addEventListener('wheel',e=>{if(!M)return;e.preventDefault();const r=cv.getBoundingClientRect();const steps=[2,3,4,6,8,12,16,24,32,48,64];let i=steps.findIndex(s=>s>=zoom);if(i<0)i=steps.length-1;i=Math.max(0,Math.min(steps.length-1,i+(e.deltaY<0?1:-1)));setZoom(steps[i],e.clientX-r.left,e.clientY-r.top)},{passive:false});
@@ -565,9 +598,9 @@ addEventListener('keydown',e=>{
   if(e.ctrlKey&&k==='v'){if(clip){e.preventDefault();startPaste()}return}
   if(e.ctrlKey)return;
   if(k===' '){spaceDown=true;stage.style.cursor='grab';e.preventDefault();return}
-  if(k==='escape'){pasting=false;sel=null;dragRect=null;updateSel();draw();return}
+  if(k==='escape'){pasting=false;sel=null;dragRect=null;stampDrag=null;updateSel();draw();return}
   if(k==='delete'&&sel){$('selDelRes').click();return}
-  const map={b:'tile',e:'erase',i:'pick',r:'res',p:'start',s:'select'};
+  const map={b:'tile',e:'erase',i:'pick',r:'res',p:'start',s:'select',t:'stamp',f:'fill'};
   if(k==='h'){setTool(e.shiftKey?'low':'high');return}
   if(map[k]){setTool(map[k]);return}
   if(k==='+'||k==='='){setZoom(zoom*1.5|0||zoom+1);return}
@@ -576,6 +609,117 @@ addEventListener('keydown',e=>{
   if(k===']'){$('brushSize').value=brush=Math.min(15,brush+1);$('brushSizeLbl').textContent=brush;draw()}
 });
 addEventListener('keyup',e=>{if(e.key===' '){spaceDown=false;stage.style.cursor=tool==='pan'?'grab':'crosshair'}});
+
+// ---------- hill / ramp stamps ----------
+let stamps=[],curStamp=null,stampDrag=null;
+const KIND_NAMES={high:'고지대 언덕',low:'낮은 언덕',ramp:'입구'};
+async function loadStamps(){
+  const theme=M.theme;stamps=[];curStamp=null;renderStamps();
+  try{const r=await api('GET','/api/stamps?theme='+theme);if(!M||M.theme!==theme)return;stamps=r.stamps.map(prepStamp);renderStamps()}
+  catch(e){$('stampInfo').textContent='견본을 읽지 못했습니다: '+e.message}
+}
+function prepStamp(s){
+  const tiles=fromB64(s.tiles),fl=i=>tiles[i*TILE]|tiles[i*TILE+1]<<8;
+  s.tileBytes=tiles;s.cache=new Map();
+  // Cells that must line up when the stamp is stretched: cliffs and ramps.
+  s.fixed=s.ids.map((t,i)=>(fl(t)&8)!==0||!!s.ramp[i]);
+  s.bandX=findBand(s.w,s.h,(a,j)=>a*s.h+j,s);s.bandY=findBand(s.h,s.w,(a,j)=>j*s.h+a,s);
+  return s;
+}
+// A run [a, a+p) of columns (or rows) whose next column a+p repeats column a
+// on every cliff/ramp cell, so repeating the run keeps the cliff face seamless.
+function findBand(n,m,cell,s){
+  for(let p=1;p<=Math.floor(n/2);p++){
+    const order=[];for(let a=1;a+p<n;a++)order.push(a);order.sort((u,v)=>Math.abs(u+p/2-n/2)-Math.abs(v+p/2-n/2));
+    for(const a of order){let ok=true,any=false;
+      for(let j=0;j<m&&ok;j++){const i1=cell(a,j),i2=cell(a+p,j);if(s.fixed[i1]||s.fixed[i2]){any=true;if(s.ids[i1]!==s.ids[i2])ok=false}}
+      if(ok&&any)return{a,p}}
+  }
+  return null;
+}
+function fitLen(n,band,want){if(!band)return n;const base=n-band.p,k=Math.max(0,Math.round((want-base)/band.p));return base+k*band.p}
+function stampTarget(d){
+  const s=curStamp,dw=d.cx-d.x+1,dh=d.cy-d.y+1;
+  if(dw<1||dh<1||(dw<=1&&dh<=1))return[s.w,s.h];
+  return[dw>1?fitLen(s.w,s.bandX,dw):s.w,dh>1?fitLen(s.h,s.bandY,dh):s.h];
+}
+function srcIndex(i,n,band,len){if(!band||len===n)return i;const tail=n-band.a-band.p;if(i<band.a)return i;if(i>=len-tail)return i-len+n;return band.a+(i-band.a)%band.p}
+function stretchIds(s,w,h){const out=new Array(w*h);for(let x=0;x<w;x++){const sx=srcIndex(x,s.w,s.bandX,w);for(let y=0;y<h;y++){const sy=srcIndex(y,s.h,s.bandY,h);out[x*h+y]=sx*s.h+sy}}return out}
+function stampTile(s,cell){
+  const t=s.ids[cell];let c=s.cache.get(t);if(c)return c;
+  c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),img=g.createImageData(32,32),p=M.palette,b=t*TILE+2;
+  for(let i=0;i<1024;i++){const v=s.tileBytes[b+i]*3;img.data[i*4]=p[v];img.data[i*4+1]=p[v+1];img.data[i*4+2]=p[v+2];img.data[i*4+3]=255}
+  g.putImageData(img,0,0);s.cache.set(t,c);return c;
+}
+function tileIdFor(bytes){
+  ensureIndex();let k='';for(let i=0;i<TILE;i+=4)k+=String.fromCharCode(bytes[i]|bytes[i+1]<<8,bytes[i+2]|bytes[i+3]<<8);
+  const f=keyIndex.get(k);return f!==undefined?f:addTile(bytes.slice(),'미분류');
+}
+function placeStamp(x0,y0,[w,h]){
+  const s=curStamp;if(!s)return;const cells=stretchIds(s,w,h),ramps=new Set();
+  checkpoint();let n=0;
+  try{
+    for(let dx=0;dx<w;dx++)for(let dy=0;dy<h;dy++){const x=x0+dx,y=y0+dy;if(!inside(x,y))continue;const c=cells[dx*h+dy],t=s.ids[c];if(s.skip[c])continue;
+      const id=tileIdFor(s.tileBytes.subarray(t*TILE,t*TILE+TILE));if(setCell(x,y,id))n++;if(s.kind==='ramp'&&s.ramp[c])ramps.add(id)}
+    msg(`${KIND_NAMES[s.kind]} ${w}×${h}칸을 (${x0}, ${y0})에 찍었습니다${s.kind==='high'?' · 언덕 위는 고지대':''}`,'ok');
+  }catch(e){msg(e.message,'bad')}
+  if(!n){undoStack.pop();updateButtons()}
+  markRamps(ramps);renderMinimap();rebuildPalette();refreshInfo();draw();
+}
+// Ramp tiles get the 입구 label so 고지대 채우기 stops at them.
+function markRamps(ids){
+  for(const id of ids){if(M.categories[id]==='입구')continue;M.categories[id]='입구';
+    api('PUT','/api/category',{theme:M.theme,tile:toB64(M.tiles.subarray(id*TILE,id*TILE+TILE)),category:'입구'}).catch(()=>{})}
+}
+// A walkable cell in a gap of a cliff band (cliff within three cells on both
+// sides along a row, column or diagonal): treated as a ramp by the fill.
+function blockedAt(x,y){return inside(x,y)&&(flags(M.grid[gi(x,y)])&8)!==0}
+function inGap(x,y){
+  const hit=(dx,dy)=>{for(let k=1;k<=3;k++){const nx=x+dx*k,ny=y+dy*k;if(!inside(nx,ny))return false;if(blockedAt(nx,ny))return true}return false};
+  return [[1,0,0,1],[0,1,1,0],[1,1,1,-1],[1,-1,1,1]].some(([dx,dy,px,py])=>hit(dx,dy)&&hit(-dx,-dy)&&![1,2].some(k=>blockedAt(x+k*px,y+k*py)||blockedAt(x-k*px,y-k*py)));
+}
+function fillHigh(x,y,high){
+  const open=(cx,cy)=>{const id=M.grid[gi(cx,cy)],f=flags(id);return (f&3)!==0&&(f&8)===0&&M.categories[id]!=='입구'&&!inGap(cx,cy)};
+  if(!open(x,y)){msg('지나갈 수 있는 언덕 위 칸을 클릭하세요 (절벽·입구 칸 제외)','bad');return}
+  const limit=Math.floor(M.W*M.H*.3),seen=new Uint8Array(M.W*M.H),stack=[[x,y]],cells=[];seen[gi(x,y)]=1;
+  while(stack.length){const [cx,cy]=stack.pop();cells.push([cx,cy]);
+    if(cells.length>limit){msg('언덕이 절벽·입구로 닫혀 있지 않아 맵 대부분이 채워집니다. 열린 곳을 견본으로 막거나 [고지대] 브러시를 쓰세요.','bad');return}
+    for(const [nx,ny] of [[cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]])if(inside(nx,ny)&&!seen[gi(nx,ny)]&&open(nx,ny)){seen[gi(nx,ny)]=1;stack.push([nx,ny])}}
+  checkpoint();let n=0;
+  try{for(const [cx,cy] of cells)if(setHigh(cx,cy,high))n++}catch(e){msg(e.message,'bad')}
+  if(!n){undoStack.pop();updateButtons();msg('바뀐 칸이 없습니다');return}
+  renderMinimap();rebuildPalette();draw();msg(`${n}칸 ${high?'고지대로 지정':'고지대 해제'}`,'ok');
+}
+function renderStamps(){
+  const box=$('stampList'),kind=$('stampKind').value;box.innerHTML='';
+  const list=stamps.filter(s=>!kind||s.kind===kind);
+  for(const s of list){const d=document.createElement('div');d.className=s===curStamp?'cur':'';d.title=`${s.name} (${s.w}×${s.h})${s.builtin?' · 기본 견본':''}`;
+    const c=document.createElement('canvas'),k=Math.max(1,Math.min(4,Math.floor(80/Math.max(s.w,s.h))));c.width=s.w*k;c.height=s.h*k;const g=c.getContext('2d');g.imageSmoothingEnabled=true;
+    for(let x=0;x<s.w;x++)for(let y=0;y<s.h;y++)g.drawImage(stampTile(s,x*s.h+y),x*k,y*k,k,k);
+    const l=document.createElement('span');l.innerHTML=`<span class="kind-${s.kind}">${KIND_NAMES[s.kind]}</span><br>${esc(s.name)}`;
+    d.appendChild(c);d.appendChild(l);
+    d.onclick=()=>{curStamp=s;if(tool!=='stamp')setTool('stamp');renderStamps();draw()};box.appendChild(d)}
+  $('stampDel').disabled=!(curStamp&&!curStamp.builtin);
+  if(!M)return;
+  const band=b=>b?b.p+'칸 단위':'고정';
+  $('stampInfo').innerHTML=curStamp?`<b>${esc(curStamp.name)}</b> ${curStamp.w}×${curStamp.h}칸 · 늘리기 가로 ${band(curStamp.bandX)}, 세로 ${band(curStamp.bandY)}`
+    :(list.length?`${list.length}개 견본. 하나를 고르세요.`:'이 테마의 견본이 없습니다. 언덕을 [선택]한 뒤 [견본으로 저장]하세요.');
+}
+$('stampKind').onchange=renderStamps;
+$('stampDel').onclick=async()=>{if(!curStamp||curStamp.builtin)return;if(!await dialog('견본 삭제',`'${esc(curStamp.name)}' 견본을 지울까요?`,{confirm:true,ok:'삭제'}))return;
+  try{await api('DELETE','/api/stamp?id='+encodeURIComponent(curStamp.id));stamps=stamps.filter(s=>s!==curStamp);curStamp=null;renderStamps();draw();msg('견본을 지웠습니다','ok')}catch(e){msg(e.message,'bad')}};
+$('selStamp').onclick=()=>{if(!sel)return;const [a,b,c,d]=norm(sel);if(c-a+1>64||d-b+1>64){dialog('견본으로 저장','견본은 가로·세로 64칸 이하만 저장할 수 있습니다.');return}
+  $('stName').value='';$('dlgStamp').showModal();$('stName').focus()};
+$('stOk').onclick=async()=>{
+  const name=$('stName').value.trim();if(!name){$('stName').focus();return}
+  const [a,b,c,d]=norm(sel),w=c-a+1,h=d-b+1,map=new Map(),ids=[],parts=[];
+  for(let x=a;x<=c;x++)for(let y=b;y<=d;y++){const id=M.grid[gi(x,y)];if(!map.has(id)){map.set(id,map.size);parts.push(M.tiles.subarray(id*TILE,id*TILE+TILE))}ids.push(map.get(id))}
+  const raw=new Uint8Array(parts.length*TILE);parts.forEach((t,i)=>raw.set(t,i*TILE));
+  try{const st=await api('PUT','/api/stamp',{name,kind:$('stKind').value,theme:M.theme,w,h,ids,tiles:toB64(raw)});$('dlgStamp').close();
+    const s=prepStamp(st);stamps.push(s);curStamp=s;$('stampKind').value='';setTool('stamp');renderStamps();msg(`견본 '${name}' 저장 (${w}×${h}칸)`,'ok')}
+  catch(e){dialog('견본을 저장할 수 없습니다',esc(e.message))}
+};
+$('stName').addEventListener('keydown',e=>{if(e.key==='Enter')$('stOk').click()});
 
 // ---------- dialogs ----------
 function dialog(title,html,{confirm=false,ok='확인'}={}){
@@ -659,6 +803,9 @@ $('bCheck').onclick=()=>{
 };
 $('bHelp').onclick=()=>dialog('도움말',`<ul>
 <li><kbd>B</kbd> 타일 · <kbd>E</kbd> 지우기 · <kbd>I</kbd> 스포이드 · <kbd>H</kbd>/<kbd>Shift+H</kbd> 고지대 · <kbd>R</kbd> 자원 · <kbd>P</kbd> 시작 위치 · <kbd>S</kbd> 선택</li>
+<li><b>언덕 만들기</b>: <kbd>T</kbd> [언덕·입구] 도구로 견본을 고르고 클릭(원래 크기) 또는 드래그(늘려서). 고지대 언덕은 언덕 위가 자동으로 고지대가 됩니다. 입구 견본을 절벽 위에 찍어 오르는 길을 냅니다.</li>
+<li><kbd>F</kbd> [고지대 채우기]: 기존 언덕 위를 한 번 클릭하면 절벽·입구로 둘러싸인 곳 전체가 고지대가 됩니다. 우클릭은 해제.</li>
+<li>다른 맵의 언덕·입구를 [선택]한 뒤 [견본으로 저장]하면 같은 테마의 모든 맵에서 쓸 수 있습니다.</li>
 <li><kbd>[</kbd> <kbd>]</kbd> 브러시 크기 · 휠 확대/축소 · <kbd>Space</kbd>+드래그 또는 가운데 버튼 드래그로 이동</li>
 <li><kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> 취소/다시 · <kbd>Ctrl+C</kbd>/<kbd>Ctrl+V</kbd> 선택 영역 복사/붙여넣기 · <kbd>Ctrl+S</kbd> 저장 · <kbd>Esc</kbd> 선택 해제</li>
 <li>타일 도구에서 우클릭하면 그 칸의 타일을 집습니다. 고지대로 표시된 칸에 다른 타일을 칠해도 고지대 표시는 유지됩니다.</li>

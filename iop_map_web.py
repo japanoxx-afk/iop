@@ -9,6 +9,9 @@ in the browser. The page talks to a small JSON API:
     PUT  /api/map?name=X.map[&overwrite=1]   save edited map (.bak backup)
     POST /api/new                        new map built from a base map
     PUT  /api/category                   remember a tile's 일반/언덕/입구 label
+    GET  /api/stamps?theme=N             hill/ramp stamps for a theme
+    PUT  /api/stamp                      save a user stamp
+    DELETE /api/stamp?id=X               delete a user stamp
 
 Every API request must carry the per-session token the server writes into the
 page (header X-IOP-Token), so other web pages cannot read or write maps
@@ -32,6 +35,7 @@ from urllib.parse import parse_qs, urlparse
 
 import iop_maps
 import iop_sprites
+import iop_stamps
 from iop_map_format import MapDocument, HIGH_GROUND_FLAG
 
 PORT = 47232
@@ -207,12 +211,13 @@ def new_map(base, width, height, players):
 class Api:
     """Request logic, kept apart from HTTP so it can be tested directly."""
 
-    def __init__(self, game_dir, categories=None, save_categories=None):
+    def __init__(self, game_dir, categories=None, save_categories=None, stamp_dir=None):
         self.game_dir = game_dir
         self.categories = categories if categories is not None else {}
         self.save_categories = save_categories or (lambda: None)
         self.lock = threading.Lock()
         self._sprites = None
+        self.stamps = iop_stamps.StampStore(stamp_dir, self.folder)
 
     def sprites(self, doc):
         """Resource and decoration images from data/Rsi.res ({} if unavailable)."""
@@ -361,6 +366,8 @@ def make_handler(api, token):
                 return self._api(api.list_maps)
             if url.path == '/api/map':
                 return self._api(lambda: api.get_map(query.get('name', [''])[0]))
+            if url.path == '/api/stamps':
+                return self._api(lambda: api.stamps.list(int(query.get('theme', ['-1'])[0])))
             if url.path in ('/', '/' + PAGE):
                 host = (self.headers.get('Host') or '').split(':')[0]
                 if host not in ('127.0.0.1', 'localhost'):
@@ -379,6 +386,14 @@ def make_handler(api, token):
                                                      query.get('overwrite', ['0'])[0] == '1'))
             if url.path == '/api/category':
                 return self._api(lambda: api.set_category(self._body()))
+            if url.path == '/api/stamp':
+                return self._api(lambda: api.stamps.save(self._body()))
+            return self._send(404, 'not found')
+
+        def do_DELETE(self):
+            url = urlparse(self.path)
+            if url.path == '/api/stamp':
+                return self._api(lambda: api.stamps.delete(parse_qs(url.query).get('id', [''])[0]))
             return self._send(404, 'not found')
 
         def do_POST(self):

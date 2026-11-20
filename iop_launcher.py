@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.036"
+VERSION = "0.037"
 MANUAL_DOWNLOAD_URL = "https://github.com/japanoxx-afk/iop/tree/main/release"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
@@ -361,7 +361,8 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
             if getattr(self, "_web_editor", None) is None:
                 import iop_map_web
                 categories = self.cfg.setdefault("tile_categories", {})
-                api = iop_map_web.Api(lambda: self.game_dir, categories, lambda: save_cfg(self.cfg))
+                api = iop_map_web.Api(lambda: self.game_dir, categories, lambda: save_cfg(self.cfg),
+                                         os.path.join(os.path.dirname(CONFIG), 'map_stamps'))
                 self._web_editor = iop_map_web.EditorServer(api)
             self._web_editor.open()
             self.set_status(f"웹 맵 에디터: {self._web_editor.url}")
