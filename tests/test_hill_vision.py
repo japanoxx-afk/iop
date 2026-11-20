@@ -37,15 +37,49 @@ class HillVisionPatch(unittest.TestCase):
         self.assertTrue(end <= hill.STATE_VA < (end + 0xFFF) & ~0xFFF)
         self.assertNotIn((hill.STATE_VA).to_bytes(4, 'little'), self.original[0x1000:0xC8000])
 
-    def test_wrapper_repushes_fog_arguments_and_pops_them(self):
-        # The legacy wrapper called 0x42D940 without re-pushing its three
-        # arguments, which turned tile y into the sight index (BBSIM #847234).
-        self.assertEqual(hill.WRAPPER.count(bytes.fromhex('ff74240c')), 3)
-        self.assertTrue(hill.WRAPPER.endswith(bytes.fromhex('c20c00')))
+    def _target(self, data, va):
+        """Destination of the rel32 call/jmp at `va` in patched bytes."""
+        import struct
+        offset = va - 0x400000
+        return va + 5 + struct.unpack_from('<i', data, offset + 1)[0]
+
+    def test_fog_entries_tail_jump_with_original_arguments(self):
+        # v0.026-v0.029 called 0x42D940 from inside the wrapper without
+        # re-pushing x, y, sight, which tripped BBSIM ERROR #847234.
+        patched = hill.patched_bytes(self.original)
+        for name in ('wrapper', 'fixed'):
+            code = hill.CAVE_CODE[hill.ENTRY[name]:]
+            jmp = code.index(bytes([0xE9]))
+            while self._target(patched, hill.CAVE_VA + hill.ENTRY[name] + jmp) != 0x42D940:
+                jmp = code.index(bytes([0xE9]), jmp + 1)
+            self.assertNotIn(bytes.fromhex('c20c00'), code[:jmp])
+        self.assertEqual(self._target(patched, 0x42E0CC), hill.CAVE_VA + hill.ENTRY['fixed'])
+        for site in (0x42E003, 0x42E072):
+            self.assertEqual(self._target(patched, site), hill.CAVE_VA + hill.ENTRY['wrapper'])
+
+    def test_high_ground_never_reaches_the_game_tile_grid(self):
+        # v0.032 kept high ground as grid bit 0x100, which object footprints
+        # (resources included) also set through 0x495C90, hiding resources.
+        patched = hill.patched_bytes(self.original)
+        setcell = hill.CAVE_VA + hill.ENTRY['setcell']
+        self.assertEqual(self._target(patched, 0x480A8E), setcell)
+        body = hill.CAVE_CODE[hill.ENTRY['setcell']:hill.ENTRY['loader']]
+        self.assertIn(bytes.fromhex('8064240dfe'), body)        # and byte [esp+0xd], 0xfe
+        self.assertEqual(self._target(patched, setcell + len(body) - 5), 0x495C60)
+        for name in ('ishigh', 'reveal', 'wrapper'):
+            block = hill.CAVE_CODE[hill.ENTRY[name]:]
+            self.assertNotIn((0x495CF0).to_bytes(4, 'little'), block[:0x40])
+
+    def test_bitmap_bounds_match_allocation(self):
+        # index (y*19 << 8) | x for x, y < 256 must stay inside the 0x26000-byte block
+        self.assertLessEqual((255 * 19 << 8 | 255) // 8, 0x26000 - 1)
+        self.assertIn((0x12FFFF).to_bytes(4, 'little'), hill.CAVE_CODE)
+        self.assertIn(bytes.fromhex('6800600200'), hill.CAVE_CODE)  # push 0x26000
+        self.assertLessEqual(len(hill.CAVE_CODE), hill.CAVE_SIZE)
 
     def test_legacy_hooks_are_replaced(self):
         import subprocess
-        for commit in ('2daad4c', 'c722ce6'):
+        for commit in ('2daad4c', 'c722ce6', '6808d51'):
             source = subprocess.run(['git', 'show', commit + ':iop_hill_vision.py'], capture_output=True).stdout
             if not source:
                 self.skipTest('git history unavailable')
