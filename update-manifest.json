@@ -1,7 +1,7 @@
 {
-  "version": "0.034",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.034/IOPLauncher_Server.exe",
-  "sha256": "f4194f8b0e41dbc7a87b5728f69deeb56a82f0c77bd935d7f4da43a903651ce6",
-  "size": 13245586,
-  "notes": "고지대 시야 재설계: 자원이 보이지 않던 v0.032 문제 수정. A·B 모두 업데이트 필요"
+  "version": "0.035",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.035/IOPLauncher_Server.exe",
+  "sha256": "b9b23df51894f946109cc5714134b4151efabdfd9610463b0b67bf161e2069e8",
+  "size": 13354823,
+  "notes": "브라우저 맵 에디터 추가: [멀티 맵 에디터] 탭 → [웹 맵 에디터 열기]"
 }
