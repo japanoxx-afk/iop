@@ -1,7 +1,7 @@
 {
-  "version": "0.039",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.039/IOPLauncher_Server.exe",
-  "sha256": "80aa9905bf3df95482166ccac15bd11889e55de91bcac3b02e2e3cd64b01ed4d",
-  "size": 13403588,
-  "notes": "웹 맵 에디터: 테마로 새 맵, 드래그로 언덕 그리기(마름모·타원·사각형·능선), 입구 미리보기"
+  "version": "0.040",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.040/IOPLauncher_Server.exe",
+  "sha256": "4dcde689a8ba9d69fbcee8249caa4fde5700597b58ee1c15161247d03b7e6777",
+  "size": 13409743,
+  "notes": "웹 맵 에디터: 클릭 한 번으로 언덕(크기 선택, 우클릭 지우기), 실제 언덕에서 배운 모양"
 }
