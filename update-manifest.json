@@ -1,7 +1,7 @@
 {
-  "version": "0.037",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.037/IOPLauncher_Server.exe",
-  "sha256": "beb11a47af8968971b580a7c934be767cacf9d7b46494349c29ad7743d40ca1a",
-  "size": 13377779,
-  "notes": "웹 맵 에디터: 언덕·입구 견본(늘려 찍기), 고지대 채우기"
+  "version": "0.038",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.038/IOPLauncher_Server.exe",
+  "sha256": "f676b81c0cde360309c49bc29626f140259ca535fc8876092039ab8124e0679b",
+  "size": 13399368,
+  "notes": "고지대 시야선(언덕 너머 가림), 웹 에디터 언덕 그리기·자동 입구·지형 선택 새 맵·타일ID·길게 눌러 이동"
 }
