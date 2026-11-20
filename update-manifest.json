@@ -1,7 +1,7 @@
 {
-  "version": "0.036",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.036/IOPLauncher_Server.exe",
-  "sha256": "9799281f18610264209a54460ccebf8c34adc5a0efea119533c466973275ee98",
-  "size": 13359876,
-  "notes": "웹 맵 에디터: 실제 자원·나무 그림 표시, 타일 팔레트 위치 개선"
+  "version": "0.037",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.037/IOPLauncher_Server.exe",
+  "sha256": "beb11a47af8968971b580a7c934be767cacf9d7b46494349c29ad7743d40ca1a",
+  "size": 13377779,
+  "notes": "웹 맵 에디터: 언덕·입구 견본(늘려 찍기), 고지대 채우기"
 }
