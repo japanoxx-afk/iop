@@ -1,7 +1,7 @@
 {
-  "version": "0.040",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.040/IOPLauncher_Server.exe",
-  "sha256": "4dcde689a8ba9d69fbcee8249caa4fde5700597b58ee1c15161247d03b7e6777",
-  "size": 13409743,
-  "notes": "웹 맵 에디터: 클릭 한 번으로 언덕(크기 선택, 우클릭 지우기), 실제 언덕에서 배운 모양"
+  "version": "0.041",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.041/IOPLauncher_Server.exe",
+  "sha256": "a50bc2cb630de50ff2bfc96b2cff6043f9c6448950afaadcbe381575eed31edf",
+  "size": 13484660,
+  "notes": "스타크래프트1 방식 리플레이: 싱글·멀티 경기 자동 녹화(LastReplay·Auto), 리플레이 탭, 재생 조작창(일시정지·배속·시야 전환·자원판)"
 }

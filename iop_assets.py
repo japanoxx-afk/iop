@@ -66,7 +66,8 @@ def normalized_iop(data):
     from iop_stability import normalize
     from iop_hill_vision import normalize as normalize_hill_vision
     from iop_network import ADDRESS_OFFSET, ORIGINAL_ADDRESS
-    base = normalize_hill_vision(normalize(normalize_exe(data)))
+    from iop_replay_patch import normalize as normalize_replay
+    base = normalize_hill_vision(normalize(normalize_exe(normalize_replay(data))))
     return base[:ADDRESS_OFFSET] + ORIGINAL_ADDRESS + base[ADDRESS_OFFSET + 16:]
 
 

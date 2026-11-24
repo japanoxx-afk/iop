@@ -216,7 +216,8 @@ class ServerTab:
         hotkeys=dict(self.cfg.get("production_hotkeys",{}))
         if getattr(self,"_hotkeys_dirty",False):
             messagebox.showinfo("단축키 저장 필요","생산 단축키 탭에서 설정 저장을 누른 뒤 게임을 시작하세요."); return
-        diagnostics.event("launch_requested",game_dir=game_dir,mode=mode,server=address,network=network)
+        record_replays=bool(self.cfg.get('replay_record',True))
+        diagnostics.event("launch_requested",game_dir=game_dir,mode=mode,server=address,network=network,record_replays=record_replays)
         self._launch_pending=True
         self._log_server('게임 준비: 화염병 수정 / hosts 자동 등록 / A·B 파일 비교…')
         def prepare():
@@ -235,6 +236,12 @@ class ServerTab:
             fix_flame(game_dir)
             from iop_stability import apply as apply_render_fix
             diagnostics.event('render_safety_patch',changed=apply_render_fix(game_dir))
+            # Every skirmish/network battle is recorded by the game itself (see iop_replay_patch).
+            from iop_replay_patch import apply as apply_replay,remove as remove_replay
+            if record_replays:
+                diagnostics.event('replay_recorder_checked',changed=apply_replay(game_dir))
+            else:
+                diagnostics.event('replay_recorder_removed',changed=remove_replay(game_dir))
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
             try:
                 ip=resolve_server(address)
@@ -268,6 +275,7 @@ class ServerTab:
                 )
                 self._game_timer.start()
                 diagnostics.event('game_timer_armed',pid=self._game_process.pid)
+                self.watch_recordings(self._game_process)
                 if ip:
                     self.mapping_ip.set(ip); self.connect_to.set(SERVER_NAME); self._save_network()
                 self._log_server(f'게임 시작: iop.exe · {mode} · '+(f'A·B {count}개 파일 일치 / {ip}' if ip else '로컬 실행'))

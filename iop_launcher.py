@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.040"
+VERSION = "0.041"
 MANUAL_DOWNLOAD_URL = "https://github.com/japanoxx-afk/iop/tree/main/release"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
@@ -145,13 +145,15 @@ HEADERS = {"name_kr": "유닛", "race": "종족", "kind": "분류", "HP": "체�
 
 from iop_hotkey_tab import HotkeyTab
 from iop_map_tab import MapViewerTab
+from iop_replay_tab import ReplayTab
 
-class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
+class Launcher(ReplayTab, MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("임팩트 오브 파워 - 런처")
         self.geometry(f"{min(1440,self.winfo_screenwidth()-80)}x{min(900,self.winfo_screenheight()-100)}")
         self.cfg = load_cfg()
+        self.launcher_version = VERSION
         self.all_rows = []
         self.rows_meta = {}
         self.sort_col = None
@@ -188,6 +190,12 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
             if result and result.get("ok"):
                 self._install_update_graphics()
             self._check_local_sync()
+            # Recordings left by a crash or by closing the launcher before the game.
+            self.finalize_recordings()
+            self.refresh_replays()
+            replay_args = [a for a in sys.argv[1:] if a.lower().endswith(".ioprep")]
+            if replay_args:
+                self.after(500, lambda: self.open_replay_argument(replay_args[0]))
 
     def _install_update_graphics(self):
         game_dir = self.game_dir
@@ -249,11 +257,14 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         tk.Button(gf, text="게임 폴더 지정", command=self.choose_game_dir).pack(side="right")
 
         nb = ttk.Notebook(self); nb.pack(fill="both", expand=True, padx=6, pady=6)
+        self.notebook = nb
         self.tab_run = tk.Frame(nb); nb.add(self.tab_run, text="  게임 실행  ")
+        self.tab_replays = tk.Frame(nb); nb.add(self.tab_replays, text="  리플레이  ")
         self.tab_bal = tk.Frame(nb); nb.add(self.tab_bal, text="  밸런스 편집  ")
         self.tab_server = tk.Frame(nb); nb.add(self.tab_server, text="  프리서버 ON/OFF  ")
         self.tab_maps = tk.Frame(nb); nb.add(self.tab_maps, text="  멀티 맵 뷰어  ")
         self._build_run(self.tab_run)
+        self._build_replays(self.tab_replays)
         self._build_balance(self.tab_bal)
         self._build_server(self.tab_server)
         self._build_map_viewer(self.tab_maps)
@@ -299,6 +310,7 @@ class Launcher(MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
             self.load_balance()
         if hasattr(self, "map_tree"):
             self._refresh_maps()
+        self.refresh_replays()
 
     # ---------------- 실행 탭 ----------------
     def _build_run(self, p):
