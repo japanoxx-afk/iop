@@ -1,4 +1,4 @@
-"""A small, click-through elapsed-time overlay attached to the game window."""
+"""Click-through overlays attached to the game window: elapsed time (top-left) and resources (top-right)."""
 from __future__ import annotations
 
 import ctypes
@@ -202,8 +202,99 @@ class _Windows:
         self.user32.SetWindowLongW(hwnd, self.GWL_EXSTYLE, style)
 
 
+def timer_position(client_rect: tuple[int, int, int, int], margin: int = 14) -> tuple[int, int]:
+    """Top-left corner of the game's client area (the timer's place since v0.042)."""
+    left, top, _right, _bottom = client_rect
+    return left + margin, top + margin
+
+
+class OverlayWindow:
+    """A borderless, click-through, always-on-top window pinned to the game client area."""
+
+    def __init__(self, root: tk.Misc, api: "_Windows", bg: str = "#090909", alpha: float = 0.84) -> None:
+        self.api = api
+        self.window = tk.Toplevel(root)
+        self.window.withdraw()
+        self.window.overrideredirect(True)
+        self.window.configure(bg=bg)
+        self.window.attributes("-topmost", True)
+        try:
+            self.window.attributes("-alpha", alpha)
+        except tk.TclError:
+            pass
+        self.shown = False
+
+    def finish(self) -> None:
+        self.window.update_idletasks()
+        self.api.make_click_through(int(self.window.winfo_id()))
+
+    def place(self, rect, corner: str) -> None:
+        self.window.update_idletasks()
+        width = self.window.winfo_reqwidth()
+        height = self.window.winfo_reqheight()
+        x, y = timer_position(rect) if corner == "left" else overlay_position(rect, width)
+        self.window.geometry(f"{width}x{height}+{x}+{y}")
+        if not self.shown:
+            self.window.deiconify()
+            self.shown = True
+        self.window.lift()
+
+    def hide(self) -> None:
+        if self.shown:
+            self.window.withdraw()
+            self.shown = False
+
+    def destroy(self) -> None:
+        try:
+            self.window.destroy()
+        except tk.TclError:
+            pass
+
+
+class ResourceTable:
+    """Player | 아다마스 | 플래티넘 table drawn with labels (top-right overlay)."""
+
+    HEAD_BG, ROW_BG, ALT_BG = "#1b2738", "#101820", "#14202c"
+
+    def __init__(self, parent: tk.Misc, title: str = "자원 현황") -> None:
+        self.frame = tk.Frame(parent, bg=self.ROW_BG, padx=6, pady=5)
+        self.frame.pack(fill="both")
+        self.title = title
+        self.cells: list[list[tk.Label]] = []
+        self._shape = None
+
+    def update(self, rows: list[tuple[str, int, int]]) -> None:
+        shape = len(rows)
+        if shape != self._shape:
+            for line in self.cells:
+                for cell in line:
+                    cell.destroy()
+            self.cells = []
+            head = [self.title, "아다마스", "플래티넘"]
+            for column, text in enumerate(head):
+                label = tk.Label(self.frame, text=text, bg=self.HEAD_BG, fg="#9fd4ff",
+                                 font=("맑은 고딕", 9, "bold"), padx=8, pady=2,
+                                 anchor="w" if column == 0 else "e")
+                label.grid(row=0, column=column, sticky="nsew")
+            for index in range(shape):
+                bg = self.ALT_BG if index % 2 else self.ROW_BG
+                line = []
+                for column in range(3):
+                    label = tk.Label(self.frame, text="", bg=bg, fg="#f2f6fa",
+                                     font=("맑은 고딕", 10, "bold") if column else ("맑은 고딕", 10),
+                                     padx=8, pady=1, anchor="w" if column == 0 else "e")
+                    label.grid(row=index + 1, column=column, sticky="nsew")
+                    line.append(label)
+                self.cells.append(line)
+            self._shape = shape
+        for line, (name, adamas, platinum) in zip(self.cells, rows):
+            line[0].config(text=name[:14])
+            line[1].config(text=f"{adamas:,}")
+            line[2].config(text=f"{platinum:,}")
+
+
 class GameTimerOverlay:
-    """Show elapsed process time at the top-right of the game's client area."""
+    """Elapsed battle time at the game's top-left; observers also get a resource table at top-right."""
 
     def __init__(self, root: tk.Misc, process, *, clock=time.monotonic,
                  on_match_start=None) -> None:
@@ -212,9 +303,10 @@ class GameTimerOverlay:
         self.clock = clock
         self.match_clock = MatchClock()
         self.on_match_start = on_match_start
-        self.window: tk.Toplevel | None = None
+        self.timer: OverlayWindow | None = None
+        self.board: OverlayWindow | None = None
+        self.table: ResourceTable | None = None
         self.label: tk.Label | None = None
-        self.board: tk.Label | None = None
         self.after_id = None
         self.api = _Windows() if sys.platform == "win32" else None
         self.process_handle = self.api.open_process(process.pid) if self.api else None
@@ -223,27 +315,16 @@ class GameTimerOverlay:
     def start(self) -> None:
         if self.api is None or self._stopped:
             return
-        self.window = tk.Toplevel(self.root)
-        self.window.withdraw()
-        self.window.overrideredirect(True)
-        self.window.configure(bg="#090909")
-        self.window.attributes("-topmost", True)
-        try:
-            self.window.attributes("-alpha", 0.84)
-        except tk.TclError:
-            pass
+        self.timer = OverlayWindow(self.root, self.api)
         self.label = tk.Label(
-            self.window, text="00:00", bg="#090909", fg="#ffffff",
+            self.timer.window, text="00:00", bg="#090909", fg="#ffffff",
             font=("Consolas", 16, "bold"), padx=11, pady=5,
         )
         self.label.pack()
-        self.board = tk.Label(
-            self.window, text='', bg="#101820", fg="#d8f3ff",
-            font=("맑은 고딕", 10, "bold"), justify='left', anchor='w',
-            padx=11, pady=7,
-        )
-        self.window.update_idletasks()
-        self.api.make_click_through(int(self.window.winfo_id()))
+        self.timer.finish()
+        self.board = OverlayWindow(self.root, self.api, bg="#101820", alpha=0.88)
+        self.table = ResourceTable(self.board.window, "관전 현황")
+        self.board.finish()
         self._tick()
 
     def stop(self) -> None:
@@ -254,12 +335,10 @@ class GameTimerOverlay:
             except (tk.TclError, RuntimeError):
                 pass
             self.after_id = None
-        if self.window is not None:
-            try:
-                self.window.destroy()
-            except tk.TclError:
-                pass
-            self.window = None
+        for overlay in (self.timer, self.board):
+            if overlay is not None:
+                overlay.destroy()
+        self.timer = self.board = None
         if self.api is not None and self.process_handle:
             self.api.close_process(self.process_handle)
             self.process_handle = None
@@ -278,23 +357,19 @@ class GameTimerOverlay:
                     self.on_match_start()
             hwnd = self.api.game_window(self.process.pid)
             rect = self.api.client_rect(hwnd) if hwnd else None
-            rows=self.api.spectator_rows(self.process_handle) if elapsed is not None else None
-            if rows is None:
-                if self.board.winfo_manager(): self.board.pack_forget()
-            else:
-                self.board.config(text=format_resource_board(rows))
-                if not self.board.winfo_manager(): self.board.pack(fill='x')
-            if elapsed is None or not hwnd or not rect or not self.api.should_show(hwnd):
-                self.window.withdraw()
+            visible = elapsed is not None and hwnd and rect and self.api.should_show(hwnd)
+            rows = self.api.spectator_rows(self.process_handle) if visible else None
+            if not visible:
+                self.timer.hide()
+                self.board.hide()
             else:
                 self.label.config(text=format_elapsed(elapsed))
-                self.window.update_idletasks()
-                width = self.window.winfo_reqwidth()
-                height = self.window.winfo_reqheight()
-                x, y = overlay_position(rect, width)
-                self.window.geometry(f"{width}x{height}+{x}+{y}")
-                self.window.deiconify()
-                self.window.lift()
+                self.timer.place(rect, "left")
+                if rows:
+                    self.table.update(rows)
+                    self.board.place(rect, "right")
+                else:
+                    self.board.hide()
         except (tk.TclError, OSError, AttributeError):
             self.stop()
             return

@@ -1,4 +1,5 @@
-"""Live replay controls: a small always-on-top panel beside the game window.
+"""Live replay controls: a small always-on-top panel on the game window, plus click-through
+overlays for the game clock (top-left) and every player's resources (top-right).
 
 The playback exe exposes its control block at a fixed address (see
 iop_replay_patch.CTRL); this panel reads progress from it and writes pause,
@@ -29,7 +30,7 @@ def speed_label(factor: float) -> str:
 
 def vision_options(players: list[dict], local_index: int) -> list[tuple[int, str]]:
     """(C_VISION value, label). 1 everyone, 0 recorder, 2+index one player's view."""
-    options = [(1, "전체 시야")]
+    options = [(1, "전체 시야 (안개 없음)")]
     for p in players:
         if p.get("type") == 6:
             continue
@@ -186,9 +187,6 @@ class ReplayPanel:
         self.vision = tk.Label(vision, text="", bg=self.BG, fg=self.FG, font=font, anchor="center")
         self.vision.pack(side="left", fill="x", expand=True)
         tk.Button(vision, text="▶", command=lambda: self.cycle_vision(1), **{**button, "width": 2}).pack(side="right")
-        self.board = tk.Label(self.body, text="", bg="#0c1118", fg="#d8f3ff", font=("맑은 고딕", 9),
-                              justify="left", anchor="w", padx=6, pady=4)
-        self.board.pack(fill="x", pady=(4, 0))
         self.status = tk.Label(self.body, text="P 일시정지 · +/- 속도 · N 한 틱 · V 시야 · H 숨기기",
                                bg=self.BG, fg=self.DIM, font=("맑은 고딕", 8), anchor="w", justify="left",
                                wraplength=330)
@@ -196,6 +194,16 @@ class ReplayPanel:
         w.update_idletasks()
         self._no_activate()
         self._placed = False
+        from iop_timer import OverlayWindow, ResourceTable, _Windows
+        self.api = _Windows()
+        self.clock_overlay = OverlayWindow(self.root, self.api)
+        self.clock_label = tk.Label(self.clock_overlay.window, text="00:00", bg="#090909", fg="#ffffff",
+                                    font=("Consolas", 16, "bold"), padx=11, pady=5)
+        self.clock_label.pack()
+        self.clock_overlay.finish()
+        self.board_overlay = OverlayWindow(self.root, self.api, bg="#101820", alpha=0.88)
+        self.table = ResourceTable(self.board_overlay.window, "플레이어")
+        self.board_overlay.finish()
         self._tick()
 
     def _no_activate(self):
@@ -223,10 +231,8 @@ class ReplayPanel:
         if not rect:
             return False
         left, top, right, bottom = rect
-        width = self.window.winfo_reqwidth()
-        screen = self.window.winfo_screenwidth()
-        x = right + 8 if right + 8 + width <= screen else max(left + 8, right - width - 8)
-        self.window.geometry(f"+{x}+{top + 48}")
+        # under the game clock at the top-left (the resource table owns the top-right)
+        self.window.geometry(f"+{left + 14}+{top + 58}")
         return True
 
     # ------------------------------------------------------------- actions
@@ -301,6 +307,9 @@ class ReplayPanel:
                 self.window.destroy()
             except tk.TclError:
                 pass
+        for overlay in (getattr(self, "clock_overlay", None), getattr(self, "board_overlay", None)):
+            if overlay is not None:
+                overlay.destroy()
         if self.memory:
             self.memory.close()
         if self.on_closed:
@@ -340,11 +349,11 @@ class ReplayPanel:
         elif name == "H":
             self.toggle_hidden()
 
-    def _board_text(self):
+    def _rows(self):
         manager = self.memory.u32(TEAM_MANAGER_POINTER) if self.memory else None
         if not manager:
-            return ""
-        lines = ["플레이어            아다마스   플래티넘"]
+            return []
+        rows = []
         for p in self.players:
             if p.get("type") == 6:
                 continue
@@ -353,9 +362,25 @@ class ReplayPanel:
             if not data:
                 continue
             adamas, platinum = struct.unpack("<II", data)
-            name = p["name"][:10]
-            lines.append(f"{name:<12}{adamas:>10,}{platinum:>10,}")
-        return "\n".join(lines) if len(lines) > 1 else ""
+            rows.append((p["name"], adamas, platinum))
+        return rows
+
+    def _overlays(self, tick):
+        hwnd = self.api.game_window(self.process.pid)
+        rect = self.api.client_rect(hwnd) if hwnd else None
+        if not rect or not self.api.should_show(hwnd) or not self.ready:
+            self.clock_overlay.hide()
+            self.board_overlay.hide()
+            return
+        game_seconds = max(0, tick - self.state.start_tick) / self.state.tps
+        self.clock_label.config(text=format_duration(game_seconds))
+        self.clock_overlay.place(rect, "left")
+        rows = self._rows()
+        if rows:
+            self.table.update(rows)
+            self.board_overlay.place(rect, "right")
+        else:
+            self.board_overlay.hide()
 
     def _tick(self):
         if self.closed:
@@ -388,8 +413,7 @@ class ReplayPanel:
                 self.bar.delete("all")
                 self.bar.create_rectangle(0, 0, int(width * self.state.progress(tick)), 8, fill=self.ACCENT, width=0)
                 self.clock.config(text=self.state.clock(tick) + (f"   틱 {tick}" if tick else ""))
-                board = self._board_text()
-                self.board.config(text=board)
+                self._overlays(tick)
                 if ended:
                     self.status.config(text="재생이 끝났습니다. ⟲ 다시 보기 · ✕ 닫기", fg=self.ACCENT)
                 elif desync:

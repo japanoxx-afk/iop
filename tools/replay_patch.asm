@@ -36,6 +36,7 @@ ORG SEC
 %define C_CMDS     (CTRL + 0x38)
 %define C_STARTED  (CTRL + 0x3C)     ; playback battle entered
 %define C_RANDFIX  (CTRL + 0x40)     ; rand differed but resources matched (UI sounds etc.)
+%define C_NOREC    (CTRL + 0x44)     ; 1 = launcher turned recording off (set in the file)
 ; ---- private state
 %define V_HANDLE   (CTRL + 0x60)
 %define V_BUFLEN   (CTRL + 0x64)
@@ -47,6 +48,10 @@ ORG SEC
 %define V_PEND     (CTRL + 0x7C)
 %define V_LASTVIS  (CTRL + 0x80)
 %define V_TMPW     (CTRL + 0x84)
+%define V_BEST     (CTRL + 0x88)
+%define V_BESTD    (CTRL + 0x8C)
+%define V_RX       (CTRL + 0x90)
+%define V_RY       (CTRL + 0x94)
 %define V_NAME     (CTRL + 0x100)    ; 64 bytes record file name
 %define V_TMP      (CTRL + 0x180)    ; 0x100 bytes scratch record
 %define BUF        (SEC + 0x2000)
@@ -102,6 +107,10 @@ entry_table:
     jmp near menu           ; 8  H9  0x403F4B call + nop
     jmp near battleend      ; 9  H10 0x404783 call 0x405F30
     jmp near vision         ; 10 H11 0x42DF95 call (replaces cmp)
+    jmp near control        ; 11 H12 0x4247D0 jmp (is player controllable)
+    jmp near acc78          ; 12 H13 0x4495C0 jmp (unit order, vt+0x78)
+    jmp near acc7c          ; 13 H14 0x449B30 jmp (unit order, vt+0x7C)
+    jmp near acc80          ; 14 H15 0x449CD0 jmp (unit order, vt+0x80)
 
 ; ---------------------------------------------------------------- helpers
 ; eax = &rand state of this thread; clobbers ecx, edx
@@ -341,6 +350,8 @@ postsetup:
     pushad
     cmp dword [C_MODE], 1
     je .play
+    cmp dword [C_NOREC], 0
+    jne .out
     movzx eax, byte [0x4E53CC]
     cmp eax, 1
     jb .out
@@ -671,6 +682,10 @@ tickadv:
     cmp eax, [V_LASTVIS]
     je .visok
     mov [V_LASTVIS], eax
+    xor ecx, ecx
+    cmp eax, 1
+    setne cl
+    mov [0x4DC668], ecx                ; 0 = no fog of war at all (display flag)
     mov ecx, [0x508188]
     test ecx, ecx
     jz .visok
@@ -718,6 +733,165 @@ vision:
     ret
 .orig:
     cmp byte [eax + edx + 0x11], 1
+    ret
+
+;
+; H12 0x4247D0(owner): "player is controlled here". Playback answers yes for everyone so any
+; unit or building can be selected and its production/upgrade progress shows in the panel.
+; Only UI code calls it (selection 0x4A1F30/0x4838B0, panel 0x4A25C0); commands are ignored.
+control:
+    cmp dword [C_MODE], 1
+    jne .orig
+    mov eax, 1
+    ret
+.orig:
+    push esi
+    mov esi, [0x508300]
+    jmp 0x4247D7
+
+; ---------------------------------------------------------------- rally -> harvest
+; Unit orders reach the mobile-unit order component through vt+0x78/0x7C/0x80 (this = component,
+; [esp+4] = 0x32-byte order record: +5 command, +0x12 target id, +0x1A, +0x2A x, +0x2E y).
+; A production building sends its new unit a move to the rally point (0xBB8/0xBB9, no target).
+; When the unit is a worker (Harvester 0x05000001, Preverian 0x13400011, Sinjong 0x05200024)
+; and the point lies on a refinery, the game's own right-click chooser (vt+0x6C, 0x45A700) is
+; asked about that refinery; if it answers harvest (0x7D3) the record becomes that order.
+; Sim-side and deterministic (object table order), so every PC must run this patch.
+acc78:
+    call rally_fix
+    push ebx
+    push ebp
+    mov ebp, ecx
+    mov eax, [ebp - 0x4F3]
+    jmp 0x4495CA
+acc7c:
+    call rally_fix
+    push ebx
+    mov ebx, ecx
+    mov eax, [ebx - 0x4F3]
+    jmp 0x449B39
+acc80:
+    call rally_fix
+    push ebx
+    mov ebx, ecx
+    mov eax, [ebx - 0x4F3]
+    jmp 0x449CD9
+
+; eax = object (table pointer) -> eax = type id, ecx = x, edx = y (pixels)
+obj_info:
+    push esi
+    mov esi, eax
+    mov edx, [esi + 4]                 ; virtual base table
+    mov ecx, [edx + 4]
+    mov eax, [esi + ecx + 8]
+    mov eax, [eax + 4]
+    mov edx, [edx + 8]
+    mov ecx, [esi + edx + 0x1D]
+    mov edx, [esi + edx + 0x21]
+    pop esi
+    ret
+
+rally_fix:                             ; [esp+4] caller return, [esp+8] record
+    pushad
+    mov esi, [esp + 40]
+    test esi, esi
+    jz .out
+    mov eax, [esi + 5]
+    cmp eax, 0xBB8
+    je .move
+    cmp eax, 0xBB9
+    jne .out
+.move:
+    cmp dword [esi + 0x12], 0
+    jne .out
+    lea edi, [ecx - 0x4F7]             ; the unit as stored in the object table
+    mov eax, edi
+    call obj_info
+    cmp eax, 0x05000001
+    je .worker
+    cmp eax, 0x13400011
+    je .worker
+    cmp eax, 0x05200024
+    jne .out
+.worker:
+    mov eax, [esi + 0x2A]
+    mov [V_RX], eax
+    mov eax, [esi + 0x2E]
+    mov [V_RY], eax
+    mov dword [V_BEST], 0
+    mov dword [V_BESTD], 96 * 96 + 1
+    mov eax, [0x507FA8]
+    test eax, eax
+    jz .out
+    mov ebx, [eax]                     ; objects 0..2999
+    test ebx, ebx
+    jz .out
+    xor ebp, ebp
+.scan:
+    cmp ebp, 0xBB8
+    jae .scanned
+    mov eax, [ebx + ebp*4]
+    test eax, eax
+    jz .next
+    push eax
+    call obj_info
+    mov ecx, eax
+    and ecx, 0xFFFFFFF0
+    cmp ecx, 0x18000000
+    jne .notref
+    and eax, 15
+    mov ecx, 0x3D4                     ; refineries 0x18000002/4/6/7/8/9
+    bt ecx, eax
+    jnc .notref
+    pop eax
+    jmp .isref
+.notref:
+    pop eax
+    jmp .next
+.isref:
+    push eax
+    call obj_info
+    pop eax
+    sub ecx, [V_RX]
+    sub edx, [V_RY]
+    cmp ecx, -96
+    jl .next
+    cmp ecx, 96
+    jg .next
+    cmp edx, -96
+    jl .next
+    cmp edx, 96
+    jg .next
+    imul ecx, ecx
+    imul edx, edx
+    add ecx, edx
+    cmp ecx, [V_BESTD]
+    jae .next
+    mov [V_BESTD], ecx
+    mov [V_BEST], eax
+.next:
+    inc ebp
+    jmp .scan
+.scanned:
+    mov eax, [V_BEST]
+    test eax, eax
+    jz .out
+    push eax                           ; chooser(target)
+    mov eax, [edi]
+    mov ecx, edi
+    call [eax + 0x6C]
+    cmp eax, 0x7D3
+    jne .out
+    mov eax, [V_BEST]
+    mov edx, [eax + 4]
+    mov edx, [edx + 4]
+    lea ecx, [eax + edx + 4]
+    call 0x46D320                      ; object id
+    mov dword [esi + 5], 0x7D3
+    mov [esi + 0x12], eax
+    mov dword [esi + 0x1A], 0
+.out:
+    popad
     ret
 
 ; ---------------------------------------------------------------- data

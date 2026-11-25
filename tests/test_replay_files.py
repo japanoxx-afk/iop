@@ -119,7 +119,7 @@ class ReplayFiles(unittest.TestCase):
         self.assertEqual(state.clock(250), '00:10 / 00:20')
         self.assertAlmostEqual(state.progress(250), 0.5)
         options = vision_options(rp.parse_players(make_block()), 0)
-        self.assertEqual(options[0], (1, '전체 시야'))
+        self.assertEqual(options[0], (1, '전체 시야 (안개 없음)'))
         self.assertEqual(options[1], (2, '홍길동 (기록자) 시야'))
 
     def test_normalization_chains_strip_replay_section(self):

@@ -237,11 +237,9 @@ class ServerTab:
             from iop_stability import apply as apply_render_fix
             diagnostics.event('render_safety_patch',changed=apply_render_fix(game_dir))
             # Every skirmish/network battle is recorded by the game itself (see iop_replay_patch).
-            from iop_replay_patch import apply as apply_replay,remove as remove_replay
-            if record_replays:
-                diagnostics.event('replay_recorder_checked',changed=apply_replay(game_dir))
-            else:
-                diagnostics.event('replay_recorder_removed',changed=remove_replay(game_dir))
+            # Rally harvest (simulation rule, needed on every PC) + game recorder (optional).
+            from iop_replay_patch import apply as apply_replay
+            diagnostics.event('replay_section_checked',changed=apply_replay(game_dir,record_replays),record=record_replays)
             if not network: return str(Path(game_dir)/'iop.exe'),None,0
             try:
                 ip=resolve_server(address)

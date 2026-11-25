@@ -1,7 +1,7 @@
 {
-  "version": "0.041",
-  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.041/IOPLauncher_Server.exe",
-  "sha256": "a50bc2cb630de50ff2bfc96b2cff6043f9c6448950afaadcbe381575eed31edf",
-  "size": 13484660,
-  "notes": "스타크래프트1 방식 리플레이: 싱글·멀티 경기 자동 녹화(LastReplay·Auto), 리플레이 탭, 재생 조작창(일시정지·배속·시야 전환·자원판)"
+  "version": "0.042",
+  "url": "https://raw.githubusercontent.com/japanoxx-afk/iop/main/release/v0.042/IOPLauncher_Server.exe",
+  "sha256": "815bad35b8994b8e5948f29164072ff931ce347ccf8dc04390791b0552c97de6",
+  "size": 13489094,
+  "notes": "집결지를 정제 건물에 찍으면 일꾼 자동 채집(A·B 모두 필요), 프리베리안 단축키 E, 리플레이 전체 시야·상대 생산 보기·자원표, 타이머 왼쪽 위"
 }

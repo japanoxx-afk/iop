@@ -37,14 +37,14 @@ SIZE_OF_IMAGE = 0x150
 ORIGINAL_SIZE_OF_IMAGE = 0x38378E
 HEADER_SLOT = 0x298                   # fifth section header
 ORIGINAL_HEADER_SLOT = bytes(24) + b"Safedisc2Cleaner"
-FEATURE_VERSION = "1"
+FEATURE_VERSION = "2"   # 2: rally on a refinery makes new workers harvest
 
 CTRL_VA = SECTION_VA + 0x1000
 CTRL = {
     "magic": 0x00, "version": 0x04, "mode": 0x08, "paused": 0x0C, "speed": 0x10,
     "vision": 0x14, "step": 0x18, "tick": 0x20, "end_tick": 0x24, "desync": 0x28,
     "first_desync": 0x2C, "ended": 0x30, "recording": 0x34, "commands": 0x38,
-    "started": 0x3C, "rand_fixed": 0x40,
+    "started": 0x3C, "rand_fixed": 0x40, "no_record": 0x44,
 }
 
 # hook site file offset (== RVA for .text) -> original bytes
@@ -60,13 +60,18 @@ ORIGINAL = {
     0x003F4B: bytes.fromhex("89becd410000"),    # H9  mov [esi+0x41CD], edi (menu)
     0x004783: bytes.fromhex("e8a8170000"),      # H10 call 0x405F30 (battle end)
     0x02DF95: bytes.fromhex("807c101101"),      # H11 cmp byte [eax+edx+0x11], 1 (fog)
+    0x0247D0: bytes.fromhex("568b3500835000"),  # H12 0x4247D0 entry (player controllable)
+    0x0495C0: bytes.fromhex("53558be98b850dfbffff"),  # H13 unit order vt+0x78
+    0x049B30: bytes.fromhex("538bd98b830dfbffff"),    # H14 unit order vt+0x7C
+    0x049CD0: bytes.fromhex("538bd98b830dfbffff"),    # H15 unit order vt+0x80
 }
 # hook site -> (entry index, opcode, trailing nops)
 HOOKS = {
     0x0059F3: (0, 0xE8, 0), 0x08F3D9: (1, 0xE8, 0), 0x004E51: (2, 0xE8, 0),
     0x004EAC: (3, 0xE8, 0), 0x0044F7: (4, 0xE8, 0), 0x004510: (5, 0xE8, 0),
     0x035BEB: (6, 0xE8, 0), 0x034060: (7, 0xE9, 0), 0x003F4B: (8, 0xE8, 1),
-    0x004783: (9, 0xE8, 0), 0x02DF95: (10, 0xE8, 0),
+    0x004783: (9, 0xE8, 0), 0x02DF95: (10, 0xE8, 0), 0x0247D0: (11, 0xE9, 2),
+    0x0495C0: (12, 0xE9, 5), 0x049B30: (13, 0xE9, 4), 0x049CD0: (14, 0xE9, 4),
 }
 
 
@@ -84,9 +89,10 @@ def _section_header():
         "<IIIIIIHHI", VIRTUAL_SIZE, SECTION_RVA, RAW_SIZE, RAW_OFFSET, 0, 0, 0, 0, CHARACTERISTICS)
 
 
-def section_image(mode=0):
+def section_image(mode=0, record=True):
     ctrl = bytearray(CTRL_INIT.ljust(0x1000, b"\0"))
     struct.pack_into("<I", ctrl, CTRL["mode"], mode)
+    struct.pack_into("<I", ctrl, CTRL["no_record"], 0 if record else 1)
     return CODE.ljust(0x1000, b"\0") + bytes(ctrl)
 
 
@@ -101,17 +107,27 @@ def installed_mode(data):
     return struct.unpack_from("<I", data, RAW_OFFSET + 0x1000 + CTRL["mode"])[0]
 
 
-def is_current(data, mode=0):
+def is_current(data, mode=0, record=True):
     return (installed_mode(data) == mode and _matches(data, PATCHED)
             and data[HEADER_SLOT:HEADER_SLOT + 40] == _section_header()
-            and data[RAW_OFFSET:RAW_OFFSET + RAW_SIZE] == section_image(mode)
+            and data[RAW_OFFSET:RAW_OFFSET + RAW_SIZE] == section_image(mode, record)
             and len(data) == RAW_OFFSET + RAW_SIZE)
 
 
+LEGACY_HOOKS = (
+    # v0.041: H1-H11 only
+    {o: b for o, b in ORIGINAL.items() if o not in (0x0247D0, 0x0495C0, 0x049B30, 0x049CD0)},
+)
+
+
 def normalize(data):
-    """Remove the replay section and hooks; anything else is returned untouched."""
-    if installed_mode(data) is None or not _matches(data, PATCHED):
+    """Remove the replay section and hooks (current or v0.041); anything else is returned untouched."""
+    if installed_mode(data) is None:
         return data
+    if not _matches(data, PATCHED):
+        old = {o: _hook_bytes(o) for o in LEGACY_HOOKS[0]}
+        if not _matches(data, old):
+            return data
     result = bytearray(data[:ORIGINAL_SIZE])
     for offset, block in ORIGINAL.items():
         result[offset:offset + len(block)] = block
@@ -121,8 +137,8 @@ def normalize(data):
     return bytes(result)
 
 
-def patched_bytes(data, mode=0):
-    if is_current(data, mode):
+def patched_bytes(data, mode=0, record=True):
+    if is_current(data, mode, record):
         return data
     base = normalize(data)
     if (len(base) != ORIGINAL_SIZE or not _matches(base, ORIGINAL)
@@ -136,7 +152,7 @@ def patched_bytes(data, mode=0):
     struct.pack_into("<H", result, NUMBER_OF_SECTIONS, 5)
     struct.pack_into("<I", result, SIZE_OF_IMAGE, SECTION_RVA + VIRTUAL_SIZE)
     result.extend(bytes(RAW_OFFSET - len(result)))
-    result.extend(section_image(mode))
+    result.extend(section_image(mode, record))
     return bytes(result)
 
 
@@ -152,11 +168,14 @@ def _write(path, old, new, backup_name):
         os.fsync(stream.fileno())
 
 
-def apply(game_dir):
-    """Install the recorder into iop.exe. True when the file changed."""
+def apply(game_dir, record=True):
+    """Install the section (rally harvest + recorder) into iop.exe. True when the file changed.
+
+    The section always stays installed because the rally rule changes the simulation and
+    every PC in a match must have it; record=False only switches the recorder off."""
     path = Path(game_dir) / "iop.exe"
     data = path.read_bytes()
-    result = patched_bytes(data, 0)
+    result = patched_bytes(data, 0, record)
     if result == data:
         return False
     _write(path, data, result, "iop.exe.before-replay.bak")

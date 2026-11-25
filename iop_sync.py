@@ -58,6 +58,9 @@ def manifest(game_dir):
     # also agree on the hill vision version or one side sees through hills.
     from iop_hill_vision import FEATURE_VERSION
     result['feature/hill_vision']=FEATURE_VERSION
+    # The .iopr section carries a simulation rule (rally harvest) and is normalized away above.
+    from iop_replay_patch import FEATURE_VERSION as REPLAY_FEATURE
+    result['feature/replay_section']=REPLAY_FEATURE
     return {'protocol':1,'files':result}
 
 def compare(local, remote):

@@ -72,7 +72,9 @@ class Game:
         u.mem_write(0x4B3180, b'\xb8' + struct.pack('<I', HEAP) + b'\xc3')
         # Game functions outside this test become recorders that return.
         self.fakes = {0x435C50: 4, 0x4055E0: 0, 0x48F0A0: 0, 0x405CE0: 0, 0x405F30: 0,
-                      0x48C2D0: 0, 0x434065: 8, 0x48E990: 0, 0x42DA60: 0}
+                      0x48C2D0: 0, 0x434065: 8, 0x48E990: 0, 0x42DA60: 0, 0x46D320: 0,
+                      STUBS + 0x900: 4}
+        self.fake_ret = {0x46D320: 77, STUBS + 0x900: 0x7D3}
         for address in self.fakes:
             u.mem_write(address, b'\xcc')
         u.hook_add(UC_HOOK_CODE, self.on_code, begin=0x400000, end=0x9FFFFF)
@@ -109,7 +111,7 @@ class Game:
         return 0
 
     def on_code(self, u, address, size, _):
-        if address in (0x403F96, 0x403F50, DONE):
+        if address in (0x403F96, 0x403F50, DONE, 0x4495CA, 0x449B39, 0x449CD9, 0x4247D7):
             u.emu_stop()
         elif address in self.stub_names:
             name, argc, fn = self.stub_names[address]
@@ -126,6 +128,8 @@ class Game:
             argc = self.fakes[address] // 4
             args = struct.unpack('<%dI' % argc, u.mem_read(esp + 4, 4 * argc)) if argc else ()
             self.calls.append((hex(address), u.reg_read(UC_X86_REG_ECX), args))
+            if address in self.fake_ret:
+                u.reg_write(UC_X86_REG_EAX, self.fake_ret[address])
             u.reg_write(UC_X86_REG_ESP, esp + 4 + 4 * argc)
             u.reg_write(UC_X86_REG_EIP, ret)
 
@@ -313,6 +317,80 @@ class ReplayEmulation(unittest.TestCase):
         self.assertEqual(seen(1, 1), 1)       # everyone
         self.assertEqual(seen(1, 2), 1)       # as player 0
         self.assertEqual(seen(0, 3), 0)       # as player 1
+
+    def make_object(self, g, base, kind, x, y):
+        vb, tr, vt = base + 0x200, base + 0x210, base + 0x220
+        g.w32(base, vt)
+        g.w32(base + 4, vb)
+        g.w32(vb + 4, 0x40)
+        g.w32(vb + 8, 0x80)
+        g.w32(base + 0x40 + 8, tr)
+        g.w32(tr + 4, kind)
+        g.w32(base + 0x80 + 0x1D, x)
+        g.w32(base + 0x80 + 0x21, y)
+        g.w32(vt + 0x6C, STUBS + 0x900)
+        g.u.mem_write(STUBS + 0x900, b'\xcc')
+        return base
+
+    def rally(self, unit_kind, command=0xBB8, x=1000, y=2000, entry_index=12, stop=0x4495CA):
+        g = Game(0)
+        worker = self.make_object(g, 0xA60000, unit_kind, 0, 0)
+        refinery = self.make_object(g, 0xA61000, 0x18000004, 1030, 2010)
+        other = self.make_object(g, 0xA62000, 0x18000001, 1001, 2001)   # closer, not a refinery
+        table, array = 0xA63000, 0xA64000
+        g.w32(0x507FA8, table)
+        g.w32(table, array)
+        g.w32(array + 5 * 4, other)
+        g.w32(array + 9 * 4, refinery)
+        rec = 0xA70000
+        g.u.mem_write(rec, bytes(0x32))
+        g.w32(rec + 5, command)
+        g.w32(rec + 0x2A, x)
+        g.w32(rec + 0x2E, y)
+        esp = STACK - 0x100
+        g.u.mem_write(esp, struct.pack('<II', DONE, rec))
+        g.u.reg_write(UC_X86_REG_ESP, esp)
+        g.u.reg_write(UC_X86_REG_ECX, worker + 0x4F7)
+        g.u.emu_start(entry(entry_index), 0xFFFFFFFF, count=200000)
+        self.assertEqual(g.u.reg_read(UC_X86_REG_EIP), stop)
+        # the original prologue ran: push ebx (+ push ebp for vt+0x78), ecx kept
+        self.assertEqual(g.u.reg_read(UC_X86_REG_ESP), esp - (8 if entry_index == 12 else 4))
+        return g, rec, refinery
+
+    def test_rally_on_refinery_becomes_harvest(self):
+        for kind in (0x05000001, 0x13400011, 0x05200024):
+            g, rec, refinery = self.rally(kind)
+            self.assertEqual(g.r32(rec + 5), 0x7D3)
+            self.assertEqual(g.r32(rec + 0x12), 77)
+            chooser = [c for c in g.calls if c[0] == hex(STUBS + 0x900)]
+            self.assertEqual(chooser[0][1], 0xA60000)      # worker asked about the refinery
+            self.assertEqual(chooser[0][2], (refinery,))
+
+    def test_rally_other_cases_untouched(self):
+        g, rec, _ = self.rally(0x05000002)                  # not a worker
+        self.assertEqual(g.r32(rec + 5), 0xBB8)
+        g, rec, _ = self.rally(0x05000001, x=5000)          # nothing near
+        self.assertEqual(g.r32(rec + 5), 0xBB8)
+        g, rec, _ = self.rally(0x05000001, command=0x7D0)   # not a move
+        self.assertEqual(g.r32(rec + 5), 0x7D0)
+        for index, stop in ((13, 0x449B39), (14, 0x449CD9)):
+            g, rec, _ = self.rally(0x13400011, entry_index=index, stop=stop)
+            self.assertEqual(g.r32(rec + 5), 0x7D3)
+
+    def test_replay_controls_everything_and_reveals_map(self):
+        g = Game(1)
+        g.call(entry(11), ret=DONE)
+        self.assertEqual(g.u.reg_read(UC_X86_REG_EAX), 1)
+        g2 = Game(0)
+        g2.call(entry(11), ret=DONE)
+        self.assertEqual(g2.u.reg_read(UC_X86_REG_EIP), 0x4247D7)   # recording PC: original check
+        g.w32(0x4DC668, 1)
+        g.w32(CTRL + 0x14, 1)
+        g.call(entry(4))
+        self.assertEqual(g.r32(0x4DC668), 0)
+        g.w32(CTRL + 0x14, 2)
+        g.call(entry(4))
+        self.assertEqual(g.r32(0x4DC668), 1)
 
     def test_normal_game_untouched(self):
         g = Game(0)

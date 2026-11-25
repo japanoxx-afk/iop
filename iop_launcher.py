@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from iop_server_tab import ServerTab
 
-VERSION = "0.041"
+VERSION = "0.042"
 MANUAL_DOWNLOAD_URL = "https://github.com/japanoxx-afk/iop/tree/main/release"
 
 # ---- IPX 네트워크(Radmin) 진단/적용용 PowerShell 스크립트 ----
@@ -153,6 +153,7 @@ class Launcher(ReplayTab, MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         self.title("임팩트 오브 파워 - 런처")
         self.geometry(f"{min(1440,self.winfo_screenwidth()-80)}x{min(900,self.winfo_screenheight()-100)}")
         self.cfg = load_cfg()
+        self._migrate_hotkeys()
         self.launcher_version = VERSION
         self.all_rows = []
         self.rows_meta = {}
@@ -164,6 +165,29 @@ class Launcher(ReplayTab, MapViewerTab, HotkeyTab, ServerTab, tk.Tk):
         self._refresh_gamedir_label()
         # 창이 뜬 직후 게임 폴더 미지정이면 경고 + 지정 안내
         self.after(300, self._startup_check)
+
+    # Launcher-recommended production keys, applied once per recommendation (user changes win later).
+    HOTKEY_RECOMMENDATIONS = (("hotkeys_v042_preverian", "0a400011:13400011", "E"),)  # 프리베리안 P -> E
+
+    def _migrate_hotkeys(self):
+        profile = dict(self.cfg.get("production_hotkeys", {}))
+        changed = False
+        for flag, ident, key in self.HOTKEY_RECOMMENDATIONS:
+            if self.cfg.get(flag):
+                continue
+            self.cfg[flag] = True
+            changed = True
+            if ident not in profile:
+                trial = {**profile, ident: key}
+                try:
+                    import iop_hotkeys
+                    iop_hotkeys.validate(trial)
+                except ValueError:
+                    continue
+                profile = trial
+        if changed:
+            self.cfg["production_hotkeys"] = profile
+            save_cfg(self.cfg)
 
     def _startup_check(self):
         from iop_update import consume_result
